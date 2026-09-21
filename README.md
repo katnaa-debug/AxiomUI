@@ -35,11 +35,11 @@ Block:CreateToggle({
 ``` lua
 local Window = Library:CreateWindow({
     Title = "AxiomUI",
-    Logo = "rbxassetid://118685771787843",
-    Description = "Premium Interface",
+    Logo = "118685771787843", -- roblox id asset or texture
+    Description = "description",
     Collapsed = false,
-    NotificationPosition = "TopRight",
-    ConfigFolder = "AxiomUI_CFG",
+    NotificationPosition = "TopRight", -- TopRight, TopLeft, BottomRight, BottomLeft
+    ConfigFolder = "AxiomUI_CFG", -- config folder
     Watermark = true,
     Keybinds = true,
     Theme = {
@@ -52,72 +52,44 @@ local Window = Library:CreateWindow({
         Outlines = Color3.fromRGB(50, 48, 68),
         Text = Color3.fromRGB(245, 245, 250),
         TextMuted = Color3.fromRGB(145, 142, 165),
-        BackgroundTrans = 0,
-        BgImageTrans = 1,
-        CardTrans = 0,
-        ElementTrans = 0,
-        InputTrans = 0,
-        BackgroundImage = "",
+        BackgroundTrans = 0, -- 0-1 (for example 0.05 / 0.76)
+        BgImageTrans = 1, -- 0-1 (for example 0.05 / 0.76)
+        CardTrans = 0, -- 0-1 (for example 0.05 / 0.76)
+        ElementTrans = 0, -- 0-1 (for example 0.05 / 0.76)
+        InputTrans = 0, -- 0-1 (for example 0.05 / 0.76)
+        BackgroundImage = "", -- (roblox id asset / texture)
         TextFont = "Gotham",
         SubtextFont = "Gotham",
         MainOutlineEnabled = false,
-        InternalOutlines = "Off",
-        ElementStyle = 1,
-        CloseAnimation = 4,
-        TopbarAlign = "Right",
+        InternalOutlines = "Off", -- Off, Only Blocks, Only Elements, All
+        ElementStyle = 1, -- (1-4)
+        CloseAnimation = 3, -- (1-4)
+        TopbarAlign = "Right", -- or Left
         ShowSearchBar = true,
         ShowProfile = true,
         DropShadows = true,
-        CornerRadius = 20,
-        ElementsCornerRadius = 20,
-        HUDCornerRadius = 10,
-        SidebarPosition = "Left",
+        CornerRadius = 20, -- (0-30)
+        ElementsCornerRadius = 20, -- (0-30)
+        HUDCornerRadius = 20, -- (0-30)
+        SidebarPosition = "Left", -- Left, Right, Bottom, Top
         DetachedSidebar = false,
-        TogglePosition = "Right"
+        TogglePosition = "Right" -- or Left
     }
 })
 ```
-
-### Window options
-
-`Title` --- window title. `Logo` --- image ID as a number or
-`rbxassetid://...`. `Description` --- sidebar subtitle. `Collapsed` ---
-start collapsed. `NotificationPosition` --- `TopRight`, `TopLeft`,
-`BottomRight`, or `BottomLeft`. `ConfigFolder` --- config folder name.
-`Watermark` and `Keybinds` enable their HUDs.
-
-### Theme options
-
-**Colors:** `Accent`, `Background`, `Sidebar`, `Card`, `Element`,
-`Input`, `Outlines`, `Text`, `TextMuted`.
-
-**Transparency:** `BackgroundTrans`, `BgImageTrans`, `CardTrans`,
-`ElementTrans`, `InputTrans`.
-
-**Fonts:** `TextFont`, `SubtextFont`.
-
-**Layout/visuals:** `BackgroundImage`, `MainOutlineEnabled`,
-`InternalOutlines`, `ElementStyle`, `CloseAnimation`, `TopbarAlign`,
-`ShowSearchBar`, `ShowProfile`, `DropShadows`, `CornerRadius`,
-`ElementsCornerRadius`, `HUDCornerRadius`, `SidebarPosition`,
-`DetachedSidebar`, `TogglePosition`.
-
-`InternalOutlines`: `Off`, `Only Blocks`, `Only Elements`, `All`.
-
-`SidebarPosition`: `Left`, `Right`, `Top`, `Bottom`.
 
 ## Tabs and Blocks
 
 ``` lua
 local Tab = Window:CreateTab({
     Name = "Elements Showcase",
-    Icon = "rbxassetid://118685771787843"
+    Icon = "118685771787843"
 })
 
 local Block = Tab:CreateBlock({
     Name = "Basic Components",
     Side = "Left",
-    Icon = "rbxassetid://118685771787843"
+    Icon = "118685771787843"
 })
 
 local Section = Block:CreateSection("Interactive")
@@ -235,12 +207,12 @@ Label:SetText("Updated text!")
 ``` lua
 local Picture = Block:CreatePicture({
     Name = "Target Avatar",
-    Image = "rbxassetid://118685771787843",
+    Image = "118685771787843",
     Size = 100,
     Description = "Example image description."
 })
 
-Picture:SetImage("rbxassetid://7059346373")
+Picture:SetImage("7059346373")
 Picture:SetSize(40)
 Picture:SetDescription("Updated description.")
 ```
@@ -376,7 +348,7 @@ Color:SetColor(Color3.fromRGB(100, 255, 100))
 ``` lua
 local Preview = Block:CreateObject({
     Name = "Character 3D",
-    Object = "game.Players.LocalPlayer",
+    Object = "game.Players.LocalPlayer", -- or another path like "game.Workspace.Part"
     Size = 45,
     Description = "Hold RMB to rotate the model."
 })
@@ -394,7 +366,7 @@ local Notification = Window:Notify({
     Title = "AxiomUI",
     Description = "This is a notification.",
     Duration = 5,
-    Icon = "rbxassetid://118685771787843"
+    Icon = "118685771787843"
 })
 
 Notification:SetTitle("Updated Title")
@@ -411,8 +383,8 @@ Create multiple internal variants inside one block:
 local Combat, Movement = Tab:CreateBlock({
     Side = "Left",
     Variants = {
-        {Name = "Combat", Icon = "rbxassetid://118685771787843"},
-        {Name = "Movement", Icon = "rbxassetid://7059346373"}
+        {Name = "Combat", Icon = "118685771787843"},
+        {Name = "Movement", Icon = "7059346373"}
     }
 })
 ```
@@ -458,9 +430,9 @@ Three variants work the same way:
 local ESP, Chams, World = Tab:CreateBlock({
     Side = "Right",
     Variants = {
-        {Name = "ESP", Icon = "rbxassetid://7059346373"},
-        {Name = "Chams", Icon = "rbxassetid://118685771787843"},
-        {Name = "World", Icon = "rbxassetid://7059346373"}
+        {Name = "ESP", Icon = "7059346373"},
+        {Name = "Chams", Icon = "118685771787843"},
+        {Name = "World", Icon = "7059346373"}
     }
 })
 
@@ -493,7 +465,7 @@ UpdateButton:CreateButton({
     Callback = function()
         Picture:SetSize(40)
         Picture:SetDescription("Updated picture description.")
-        Picture:SetImage("rbxassetid://7059346373")
+        Picture:SetImage("7059346373")
 
         Button:SetText("New Button Text")
         Button:SetKeybind(Enum.KeyCode.Q)
@@ -527,7 +499,7 @@ UpdateButton:CreateButton({
 ``` lua
 Window.Watermark:SetVisible(true)
 Window.Watermark:SetVisible(false)
-Window.Watermark:SetLogo("rbxassetid://123456")
+Window.Watermark:SetLogo("123456")
 ```
 
 ### Active keybinds HUD
@@ -607,11 +579,4 @@ variants are designed to work as one visual system.
 
 ------------------------------------------------------------------------
 
-```{=html}
-<p align="center">
-```
-`<strong>`{=html}AxiomUI`</strong>`{=html}`<br>`{=html}`<sub>`{=html}Build
-clean. Build fast. Build with AxiomUI.`</sub>`{=html}
-```{=html}
-</p>
-```
+AxiomUI: Build clean. Build fast. Build with AxiomUI.
