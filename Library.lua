@@ -990,7 +990,7 @@ function Library.CreateWindow(config)
 			local sw, sh = screenGui.AbsoluteSize.X, screenGui.AbsoluteSize.Y
 			local maxW = isMobile and math.max(minW, (sw / scaleMultiplier) - 20) or 1400
 			local maxH = isMobile and math.max(minH, (sh / scaleMultiplier) - 20) or 1000
-			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + delta.X, minW, maxW), 0, math.clamp(resizeStartSize.Y + delta.Y, minH, maxH))
+			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + (delta.X * 2), minW, maxW), 0, math.clamp(resizeStartSize.Y + (delta.Y * 2), minH, maxH))
 		end
 	end))
 
@@ -1229,6 +1229,7 @@ function Library.CreateWindow(config)
 	topbar.Size = UDim2.new(1, -currentSidebarWidth, 0, 60)
 	topbar.Position = UDim2.new(0, currentSidebarWidth, 0, 0)
 	topbar.BackgroundTransparency = 1
+	topbar.ClipsDescendants = true
 	topbar.ZIndex = 5
 	topbar.Parent = main
 
@@ -2136,14 +2137,14 @@ function Library.CreateWindow(config)
 		if isDestroyed then return end
 		isDestroyed = true
 		if Window.IsEditMode then CAS:UnbindAction("AxiomEditSink") end
-		local hideAnim = PlayFadeAnim(false)
+		PlayFadeAnim(false)
 		for _, conn in ipairs(Window._connections) do
 			if conn.Connected then conn:Disconnect() end
 		end
 		table.clear(Window._connections)
-		hideAnim.Completed:Connect(function() 
-			editModeCC:Destroy()
-			screenGui:Destroy() 
+		task.delay(0.4, function() 
+			pcall(function() editModeCC:Destroy() end)
+			pcall(function() screenGui:Destroy() end) 
 		end)
 	end))
 
@@ -2160,8 +2161,8 @@ function Library.CreateWindow(config)
 		local mobileToggleUI = Instance.new("ImageButton")
 		mobileToggleUI.Name = "MobileToggleUI"
 		mobileToggleUI.Size = UDim2.new(0, 40, 0, 40)
-		mobileToggleUI.AnchorPoint = Vector2.new(0.5, 0)
-		mobileToggleUI.Position = UDim2.new(0.5, 0, 0, 10)
+		mobileToggleUI.AnchorPoint = Vector2.new(0.5, 0.5)
+		mobileToggleUI.Position = UDim2.new(0.5, 0, 0, 30)
 		mobileToggleUI.BackgroundColor3 = THEME.Sidebar
 		mobileToggleUI.Image = (logoIconId and logoIconId ~= "") and logoIconId or "rbxassetid://118685771787843"
 		mobileToggleUI.ZIndex = 999999
@@ -2176,16 +2177,39 @@ function Library.CreateWindow(config)
 		mtStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		mtStroke.Color = THEME.Outlines
 		mtStroke.Parent = mobileToggleUI
+
+		local mtDragging, mtDragStart, mtStartPos, mtMoved
+		table.insert(Window._connections, mobileToggleUI.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				mtDragging = true
+				mtMoved = false
+				mtDragStart = input.Position
+				mtStartPos = mobileToggleUI.Position
+			end
+		end))
+		table.insert(Window._connections, UIS.InputChanged:Connect(function(input)
+			if mtDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - mtDragStart
+				if delta.Magnitude > 5 then mtMoved = true end
+				mobileToggleUI.Position = UDim2.new(mtStartPos.X.Scale, mtStartPos.X.Offset + delta.X, mtStartPos.Y.Scale, mtStartPos.Y.Offset + delta.Y)
+			end
+		end))
+		table.insert(Window._connections, UIS.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				mtDragging = false
+			end
+		end))
 		
-		table.insert(Window._connections, mobileToggleUI.MouseButton1Click:Connect(function()
+		table.insert(Window._connections, mobileToggleUI.Activated:Connect(function()
+			if mtMoved then return end
 			isUIOpen = not isUIOpen
 			if isUIOpen then
 				PlayFadeAnim(true)
 			else
-				local hideAnim = PlayFadeAnim(false)
-				table.insert(Window._connections, hideAnim.Completed:Connect(function()
+				PlayFadeAnim(false)
+				task.delay(0.35, function()
 					if not isUIOpen then wrapper.Visible = false end
-				end))
+				end)
 			end
 		end))
 	end
@@ -2215,6 +2239,10 @@ function Library.CreateWindow(config)
 	themeEditorContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	themeEditorContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 	themeEditorContainer.Parent = screenGui
+
+	local teScale = Instance.new("UIScale")
+	teScale.Scale = isMobile and 0.65 or 1
+	teScale.Parent = themeEditorContainer
 
 	local themeEditorPad = Instance.new("UIPadding")
 	themeEditorPad.PaddingTop = UDim.new(0, 15)
@@ -3952,7 +3980,7 @@ function Library.CreateWindow(config)
 			local toggleBoxCorner = Instance.new("UICorner")
 			toggleBoxCorner.CornerRadius = GLOBAL_CORNER
 			toggleBoxCorner.Parent = toggleBox
-			CS:AddTag(toggleBoxCorner, "ElementCorner") -- Привязка внешней рамки
+			CS:AddTag(toggleBoxCorner, "ElementCorner")
 
 			local toggleStroke = Instance.new("UIStroke")
 			toggleStroke.Name = "ToggleStroke"
@@ -3972,7 +4000,7 @@ function Library.CreateWindow(config)
 			local fillCorner = Instance.new("UICorner")
 			fillCorner.CornerRadius = GLOBAL_CORNER
 			fillCorner.Parent = fill
-			CS:AddTag(fillCorner, "ElementCorner") -- Привязка внутреннего заполнения
+			CS:AddTag(fillCorner, "ElementCorner")
 
 			if state then fill.Size = UDim2.new(1, -10, 1, -10) else fill.Size = UDim2.new(0, 0, 0, 0) end
 
@@ -5135,7 +5163,7 @@ function Library.CreateWindow(config)
 				lbl.Size = UDim2.new(1, -(120 + (mobileToggle and 30 or 0)), 1, 0)
 				if mobileToggle then
 					mobileToggle.AnchorPoint = Vector2.new(0, 0.5)
-					mobileToggle.Position = UDim2.new(0, 12, 0.5, 0) -- Ровно по центру (0.5), отступ 12
+					mobileToggle.Position = UDim2.new(0, 12, 0.5, 0)
 					mobileToggle.Size = UDim2.new(0, 20, 0, 20)
 				end
 			end
