@@ -265,6 +265,10 @@ function Library.CreateWindow(config)
 	local notifLayout = Instance.new("UIListLayout")
 	notifLayout.Padding = UDim.new(0, 10)
 	notifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	
+	local notifScale = Instance.new("UIScale")
+	notifScale.Scale = isMobile and 0.65 or 1
+	notifScale.Parent = notifHolder
 
 	local isNotifTop = string.find(notifPosition, "Top") ~= nil
 	local isNotifLeft = string.find(notifPosition, "Left") ~= nil
@@ -558,14 +562,15 @@ function Library.CreateWindow(config)
 	local function createMobileBindButton(text, callback)
 		local btn = Instance.new("TextButton")
 		btn.Name = "MobileBindButton"
-		btn.Size = UDim2.new(0, 64, 0, 42)
+		btn.Size = UDim2.new(0, 48, 0, 48)
 		btn.AnchorPoint = Vector2.new(0.5, 0.5)
 		mobileBindOrder = mobileBindOrder + 1
-		btn.Position = UDim2.new(1, -78, 1, -180 - ((mobileBindOrder - 1) * 50))
+		btn.Position = UDim2.new(1, -78, 1, -180 - ((mobileBindOrder - 1) * 54))
 		btn.AutoButtonColor = false
 		btn.BackgroundTransparency = 0
 		btn.Text = text or "None"
 		btn.TextSize = 13
+		btn.TextWrapped = true
 		btn.Font = Enum.Font.GothamMedium
 		btn.Active = true
 		btn.ZIndex = 100001
@@ -980,10 +985,11 @@ function Library.CreateWindow(config)
 
 	table.insert(Window._connections, UIS.InputChanged:Connect(function(input)
 		if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - resizeStartPos
+			local scaleMultiplier = isMobile and 0.65 or 1
+			local delta = (input.Position - resizeStartPos) / scaleMultiplier
 			local sw, sh = screenGui.AbsoluteSize.X, screenGui.AbsoluteSize.Y
-			local maxW = isMobile and math.max(minW, sw - 20) or 1400
-			local maxH = isMobile and math.max(minH, sh - 20) or 1000
+			local maxW = isMobile and math.max(minW, (sw / scaleMultiplier) - 20) or 1400
+			local maxH = isMobile and math.max(minH, (sh / scaleMultiplier) - 20) or 1000
 			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + delta.X, minW, maxW), 0, math.clamp(resizeStartSize.Y + delta.Y, minH, maxH))
 		end
 	end))
@@ -1875,8 +1881,14 @@ function Library.CreateWindow(config)
 			
 			settingsContainer.Visible = false
 
-			tabList.Position = UDim2.new(0, 10, 0, 75)
-			tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -125 or -90)
+			if isCollapsed then
+				tabList.Position = UDim2.new(0, 0, 0, 75)
+				tabList.Size = UDim2.new(1, 0, 1, (description and type(description) == "string") and -125 or -90)
+			else
+				tabList.Position = UDim2.new(0, 10, 0, 75)
+				tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -125 or -90)
+			end
+			
 			tabListLayout.FillDirection = Enum.FillDirection.Vertical
 			tabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			tabListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
@@ -3817,12 +3829,12 @@ function Library.CreateWindow(config)
 
 				box.AnchorPoint = Vector2.new(1, 0.5)
 				box.Position = UDim2.new(1, -edge, 0.5, 0)
-				btnInteractive.Position = UDim2.new(0, mobileToggle and 28 or 0, 0, 0)
-				btnInteractive.Size = UDim2.new(1, -(50 + (mobileToggle and 28 or 0)), 1, 0)
+				btnInteractive.Position = UDim2.new(0, mobileToggle and 36 or 0, 0, 0)
+				btnInteractive.Size = UDim2.new(1, -(50 + (mobileToggle and 36 or 0)), 1, 0)
 				btnInteractive.TextXAlignment = Enum.TextXAlignment.Center
 				if mobileToggle then
 					mobileToggle.AnchorPoint = Vector2.new(0, 0.5)
-					mobileToggle.Position = UDim2.new(0, edge, 0.5, 0)
+					mobileToggle.Position = UDim2.new(0, 12, 0.5, 0)
 					mobileToggle.Size = UDim2.new(0, 20, 0, 20)
 				end
 			end
@@ -5119,11 +5131,11 @@ function Library.CreateWindow(config)
 
 				box.AnchorPoint = Vector2.new(1, 0.5)
 				box.Position = UDim2.new(1, -edge, 0.5, 0)
-				lbl.Position = UDim2.new(0, mobileToggle and (edge + 24) or 15, 0, 0)
-				lbl.Size = UDim2.new(1, -(120 + (mobileToggle and 24 or 0)), 1, 0)
+				lbl.Position = UDim2.new(0, mobileToggle and 38 or 15, 0, 0)
+				lbl.Size = UDim2.new(1, -(120 + (mobileToggle and 30 or 0)), 1, 0)
 				if mobileToggle then
 					mobileToggle.AnchorPoint = Vector2.new(0, 0.5)
-					mobileToggle.Position = UDim2.new(0, edge, 0.5, 0)
+					mobileToggle.Position = UDim2.new(0, 12, 0.5, 0) -- Ровно по центру (0.5), отступ 12
 					mobileToggle.Size = UDim2.new(0, 20, 0, 20)
 				end
 			end
