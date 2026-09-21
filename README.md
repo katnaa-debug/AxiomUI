@@ -1,11 +1,4 @@
 # AxiomUI
-
-```A modern, premium Roblox UI library for
-Luau`</strong>`{=html}`<br>`{=html}Clean visuals · Simple API · Dynamic
-components · Custom themes
-```{=html}
-</p>
-```
 AxiomUI is a single-file Roblox UI library built around a simple idea:
 **powerful interfaces should be easy to create and pleasant to use.**
 
