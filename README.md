@@ -1,5 +1,5 @@
 # AxiomUI
-AxiomUI is a single-file Roblox UI library built around a simple idea:
+AxiomUI is a Roblox UI library built around a simple idea:
 **powerful interfaces should be easy to create and pleasant to use.**
 
 ## Installation
