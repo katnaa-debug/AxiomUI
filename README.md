@@ -1,9 +1,6 @@
 # AxiomUI
 
-```{=html}
-<p align="center">
-```
-`<strong>`{=html}A modern, premium Roblox UI library for
+```A modern, premium Roblox UI library for
 Luau`</strong>`{=html}`<br>`{=html}Clean visuals · Simple API · Dynamic
 components · Custom themes
 ```{=html}
