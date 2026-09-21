@@ -625,7 +625,7 @@ function Library.CreateWindow(config)
 	local function createMobileToggle(parent, callback)
 		local box = Instance.new("TextButton")
 		box.Name = "MobileBindToggle"
-		box.Size = UDim2.new(0, 22, 0, 22)
+		box.Size = UDim2.new(0, 20, 0, 20)
 		box.BackgroundTransparency = 1
 		box.BorderSizePixel = 0
 		box.Text = ""
@@ -651,13 +651,18 @@ function Library.CreateWindow(config)
 		corner.Parent = box
 		CS:AddTag(corner, "ElementCorner")
 
+		local fillCorner = Instance.new("UICorner")
+		fillCorner.CornerRadius = GLOBAL_CORNER
+		fillCorner.Parent = fill
+		CS:AddTag(fillCorner, "ElementCorner")
+
 		local enabled = false
 		local mobileBtn
 		local function setEnabled(value)
 			enabled = value
 			if enabled then
 				ApplyTheme(stroke, "Accent", "Color")
-				fill.Size = UDim2.new(1, -8, 1, -8)
+				fill.Size = UDim2.new(1, -6, 1, -6)
 			else
 				ApplyTheme(stroke, "Outlines", "Color")
 				fill.Size = UDim2.new(0, 0, 0, 0)
@@ -707,11 +712,15 @@ function Library.CreateWindow(config)
 	local wrapper = Instance.new("Frame")
 	wrapper.Name = "Wrapper"
 	wrapper.AnchorPoint = Vector2.new(0.5, 0.5)
-	wrapper.Size = isMobile and UDim2.new(0.9, 0, 0.9, 0) or UDim2.new(0, 950, 0, 600)
+	wrapper.Size = isMobile and UDim2.new(0, 700, 0, 450) or UDim2.new(0, 950, 0, 600)
 	wrapper.Position = UDim2.new(0.5, 0, 0.5, 0)
 	wrapper.BackgroundTransparency = 1
 	wrapper.Active = true 
 	wrapper.Parent = screenGui
+
+	local uiScale = Instance.new("UIScale")
+	uiScale.Scale = isMobile and 0.65 or 1
+	uiScale.Parent = wrapper
 
 	local contentWrapper = Instance.new("Frame")
 	contentWrapper.Name = "ContentWrapper"
@@ -950,8 +959,8 @@ function Library.CreateWindow(config)
 
 	local resizing = false
 	local resizeStartPos, resizeStartSize
-	local minW = isMobile and 280 or 700
-	local minH = isMobile and 360 or 450
+	local minW = isMobile and 350 or 700
+	local minH = isMobile and 250 or 450
 
 	table.insert(Window._connections, resizeHitbox.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1273,6 +1282,7 @@ function Library.CreateWindow(config)
 	closeBtn.Text = "" 
 	closeBtn.AutoButtonColor = false
 	closeBtn.LayoutOrder = 3
+	closeBtn.ZIndex = 50
 	closeBtn.Parent = topbar
 	ApplyTheme(closeBtn, "Card", "BackgroundColor3")
 	ApplyTheme(closeBtn, "CardTrans", "BackgroundTransparency")
@@ -2110,7 +2120,7 @@ function Library.CreateWindow(config)
 		end
 	end
 
-	table.insert(Window._connections, closeBtn.MouseButton1Click:Connect(function()
+	table.insert(Window._connections, closeBtn.Activated:Connect(function()
 		if isDestroyed then return end
 		isDestroyed = true
 		if Window.IsEditMode then CAS:UnbindAction("AxiomEditSink") end
@@ -2133,6 +2143,40 @@ function Library.CreateWindow(config)
 		TS:Create(crossLine1, TweenInfo.new(0.2), {BackgroundColor3 = THEME.TextMuted}):Play() 
 		TS:Create(crossLine2, TweenInfo.new(0.2), {BackgroundColor3 = THEME.TextMuted}):Play() 
 	end))
+
+	if isMobile then
+		local mobileToggleUI = Instance.new("ImageButton")
+		mobileToggleUI.Name = "MobileToggleUI"
+		mobileToggleUI.Size = UDim2.new(0, 40, 0, 40)
+		mobileToggleUI.AnchorPoint = Vector2.new(0.5, 0)
+		mobileToggleUI.Position = UDim2.new(0.5, 0, 0, 10)
+		mobileToggleUI.BackgroundColor3 = THEME.Sidebar
+		mobileToggleUI.Image = (logoIconId and logoIconId ~= "") and logoIconId or "rbxassetid://118685771787843"
+		mobileToggleUI.ZIndex = 999999
+		mobileToggleUI.Parent = screenGui
+		
+		local mtCorner = Instance.new("UICorner")
+		mtCorner.CornerRadius = UDim.new(0, 10)
+		mtCorner.Parent = mobileToggleUI
+		
+		local mtStroke = Instance.new("UIStroke")
+		mtStroke.Thickness = 1
+		mtStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		mtStroke.Color = THEME.Outlines
+		mtStroke.Parent = mobileToggleUI
+		
+		table.insert(Window._connections, mobileToggleUI.MouseButton1Click:Connect(function()
+			isUIOpen = not isUIOpen
+			if isUIOpen then
+				PlayFadeAnim(true)
+			else
+				local hideAnim = PlayFadeAnim(false)
+				table.insert(Window._connections, hideAnim.Completed:Connect(function()
+					if not isUIOpen then wrapper.Visible = false end
+				end))
+			end
+		end))
+	end
 
 	table.insert(Window._connections, UIS.InputBegan:Connect(function(input, gameProcessed)
 		if input.KeyCode == Enum.KeyCode.RightShift and not UIS:GetFocusedTextBox() then
@@ -3773,12 +3817,13 @@ function Library.CreateWindow(config)
 
 				box.AnchorPoint = Vector2.new(1, 0.5)
 				box.Position = UDim2.new(1, -edge, 0.5, 0)
-				btnInteractive.Position = UDim2.new(0, mobileToggle and 32 or 0, 0, 0)
-				btnInteractive.Size = UDim2.new(1, -(50 + (mobileToggle and 32 or 0)), 1, 0)
+				btnInteractive.Position = UDim2.new(0, mobileToggle and 28 or 0, 0, 0)
+				btnInteractive.Size = UDim2.new(1, -(50 + (mobileToggle and 28 or 0)), 1, 0)
 				btnInteractive.TextXAlignment = Enum.TextXAlignment.Center
 				if mobileToggle then
 					mobileToggle.AnchorPoint = Vector2.new(0, 0.5)
 					mobileToggle.Position = UDim2.new(0, edge, 0.5, 0)
+					mobileToggle.Size = UDim2.new(0, 20, 0, 20)
 				end
 			end
 			table.insert(Window._styleCallbacks, updateStyle)
@@ -3895,7 +3940,7 @@ function Library.CreateWindow(config)
 			local toggleBoxCorner = Instance.new("UICorner")
 			toggleBoxCorner.CornerRadius = GLOBAL_CORNER
 			toggleBoxCorner.Parent = toggleBox
-			CS:AddTag(toggleBoxCorner, "ElementCorner")
+			CS:AddTag(toggleBoxCorner, "ElementCorner") -- Привязка внешней рамки
 
 			local toggleStroke = Instance.new("UIStroke")
 			toggleStroke.Name = "ToggleStroke"
@@ -3915,7 +3960,7 @@ function Library.CreateWindow(config)
 			local fillCorner = Instance.new("UICorner")
 			fillCorner.CornerRadius = GLOBAL_CORNER
 			fillCorner.Parent = fill
-			CS:AddTag(fillCorner, "ElementCorner")
+			CS:AddTag(fillCorner, "ElementCorner") -- Привязка внутреннего заполнения
 
 			if state then fill.Size = UDim2.new(1, -10, 1, -10) else fill.Size = UDim2.new(0, 0, 0, 0) end
 
@@ -5074,11 +5119,12 @@ function Library.CreateWindow(config)
 
 				box.AnchorPoint = Vector2.new(1, 0.5)
 				box.Position = UDim2.new(1, -edge, 0.5, 0)
-				lbl.Position = UDim2.new(0, mobileToggle and 32 or 15, 0, 0)
-				lbl.Size = UDim2.new(1, -(120 + (mobileToggle and 32 or 0)), 1, 0)
+				lbl.Position = UDim2.new(0, mobileToggle and (edge + 24) or 15, 0, 0)
+				lbl.Size = UDim2.new(1, -(120 + (mobileToggle and 24 or 0)), 1, 0)
 				if mobileToggle then
 					mobileToggle.AnchorPoint = Vector2.new(0, 0.5)
 					mobileToggle.Position = UDim2.new(0, edge, 0.5, 0)
+					mobileToggle.Size = UDim2.new(0, 20, 0, 20)
 				end
 			end
 			table.insert(Window._styleCallbacks, updateStyle)
@@ -5360,6 +5406,8 @@ function Library.CreateWindow(config)
 				
 				if not isTopOrBottom and not collapsedNow then 
 					TS:Create(prevTab.Padding, TweenInfo.new(0.3), {PaddingLeft = UDim.new(0, 15)}):Play() 
+				else
+					TS:Create(prevTab.Padding, TweenInfo.new(0.3), {PaddingLeft = UDim.new(0, 0)}):Play()
 				end
 	
 				local outTween = TS:Create(prevTab.Page, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, -20, 0, 0), GroupTransparency = 1})
@@ -5377,6 +5425,8 @@ function Library.CreateWindow(config)
 			
 			if not isTopOrBottom and not collapsedNow then 
 				TS:Create(tabBtnPadding, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {PaddingLeft = UDim.new(0, 22)}):Play() 
+			else
+				TS:Create(tabBtnPadding, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {PaddingLeft = UDim.new(0, 0)}):Play() 
 			end
 	
 			page.Position = UDim2.new(0, -20, 0, 0)
