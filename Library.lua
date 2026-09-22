@@ -883,7 +883,11 @@ function Library.CreateWindow(config)
 
 	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 		if wrapper.Parent then
-			wrapper.Position = wrapper.Position:Lerp(targetPos, 1 - math.exp(-28 * dt))
+			if math.abs(wrapper.Position.X.Offset - targetPos.X.Offset) > 0.1 or math.abs(wrapper.Position.Y.Offset - targetPos.Y.Offset) > 0.1 then
+				wrapper.Position = wrapper.Position:Lerp(targetPos, 1 - math.exp(-28 * dt))
+			else
+				wrapper.Position = targetPos
+			end
 		end
 	end))
 
@@ -2136,7 +2140,11 @@ function Library.CreateWindow(config)
 	table.insert(Window._connections, closeBtn.Activated:Connect(function()
 		if isDestroyed then return end
 		isDestroyed = true
-		if Window.IsEditMode then CAS:UnbindAction("AxiomEditSink") end
+		if Window.IsEditMode then 
+			CAS:UnbindAction("AxiomEditSink") 
+		end
+		pcall(function() Window.ToggleEditMode(false) end)
+		
 		PlayFadeAnim(false)
 		for _, conn in ipairs(Window._connections) do
 			if conn.Connected then conn:Disconnect() end
@@ -3666,6 +3674,8 @@ function Library.CreateWindow(config)
 						if renderConn then renderConn:Disconnect(); renderConn = nil end
 						return 
 					end
+					if not viewport.Visible or viewport.AbsoluteSize.X == 0 then return end
+					
 					if not src or not src.Parent then return end
 
 					if isChar then
@@ -6082,7 +6092,11 @@ function Library.CreateWindow(config)
 
 	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 		if watermarkHolder.Parent then
-			watermarkHolder.Position = watermarkHolder.Position:Lerp(wmTargetPos, 1 - math.exp(-28 * dt))
+			if math.abs(watermarkHolder.Position.X.Offset - wmTargetPos.X.Offset) > 0.1 or math.abs(watermarkHolder.Position.Y.Offset - wmTargetPos.Y.Offset) > 0.1 then
+				watermarkHolder.Position = watermarkHolder.Position:Lerp(wmTargetPos, 1 - math.exp(-28 * dt))
+			else
+				watermarkHolder.Position = wmTargetPos
+			end
 		end
 	end))
 
@@ -6307,7 +6321,11 @@ function Library.CreateWindow(config)
 
 		table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 			if kbHolder.Parent then
-				kbHolder.Position = kbHolder.Position:Lerp(kbTargetPos, 1 - math.exp(-26 * dt))
+				if math.abs(kbHolder.Position.X.Offset - kbTargetPos.X.Offset) > 0.1 or math.abs(kbHolder.Position.Y.Offset - kbTargetPos.Y.Offset) > 0.1 then
+					kbHolder.Position = kbHolder.Position:Lerp(kbTargetPos, 1 - math.exp(-26 * dt))
+				else
+					kbHolder.Position = kbTargetPos
+				end
 			end
 		end))
 
