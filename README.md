@@ -33,49 +33,55 @@ Block:CreateToggle({
 ## Window
 
 ``` lua
-local Window = Library:CreateWindow({
-    Title = "AxiomUI",
-    Logo = "118685771787843", -- roblox id asset or texture
-    Description = "description",
-    Collapsed = false,
-    NotificationPosition = "TopRight", -- TopRight, TopLeft, BottomRight, BottomLeft
-    ConfigFolder = "AxiomUI_CFG", -- config folder
-    Watermark = true,
-    Keybinds = true,
-    Theme = {
-        Accent = Color3.fromRGB(110, 100, 255),
-        Background = Color3.fromRGB(24, 23, 35),
-        Sidebar = Color3.fromRGB(20, 19, 30),
-        Card = Color3.fromRGB(34, 32, 48),
-        Element = Color3.fromRGB(24, 23, 35),
-        Input = Color3.fromRGB(16, 15, 23),
-        Outlines = Color3.fromRGB(50, 48, 68),
-        Text = Color3.fromRGB(245, 245, 250),
-        TextMuted = Color3.fromRGB(145, 142, 165),
-        BackgroundTrans = 0, -- 0-1 (for example 0.05 / 0.76)
-        BgImageTrans = 1, -- 0-1 (for example 0.05 / 0.76)
-        CardTrans = 0, -- 0-1 (for example 0.05 / 0.76)
-        ElementTrans = 0, -- 0-1 (for example 0.05 / 0.76)
-        InputTrans = 0, -- 0-1 (for example 0.05 / 0.76)
-        BackgroundImage = "", -- (roblox id asset / texture)
-        TextFont = "Gotham",
-        SubtextFont = "Gotham",
-        MainOutlineEnabled = false,
-        InternalOutlines = "Off", -- Off, Only Blocks, Only Elements, All
-        ElementStyle = 1, -- (1-4)
-        CloseAnimation = 3, -- (1-4)
-        TopbarAlign = "Right", -- or Left
-        ShowSearchBar = true,
-        ShowProfile = true,
-        DropShadows = true,
-        CornerRadius = 20, -- (0-30)
-        ElementsCornerRadius = 20, -- (0-30)
-        HUDCornerRadius = 20, -- (0-30)
-        SidebarPosition = "Left", -- Left, Right, Bottom, Top
-        DetachedSidebar = false,
-        TogglePosition = "Right" -- or Left
-    }
-})
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/katnaa-debug/AxiomUI/refs/heads/main/Library.lua"))()
+
+--//====================================================
+--// WINDOW
+--//====================================================
+
+local Window = Library.CreateWindow({
+  Title = "MERCURY",                  -- String (Any text for the hub name)
+  Logo = 118685771787843,             -- Number or String (Image ID: as a number or "rbxassetid://..." format)
+  Description = "v1.0.0 Showcase",    -- String (Description text below the sidebar)
+  Collapsed = false,                  -- Boolean (true / false) - Whether to start the menu in a compact (collapsed) state
+  NotificationPosition = "TopRight",  -- String ("TopRight", "TopLeft", "BottomRight", "BottomLeft") - Corner for notifications
+  ConfigFolder = "MERCURY_CFG",       -- String (Name of the workspace folder for saving configs)
+  Watermark = true,                   -- Boolean (true / false) - Enable watermark by default
+  Keybinds = true,
+  Theme = {
+    Accent = Color3.fromRGB(110, 100, 255),    -- Accent color
+    Background = Color3.fromRGB(24, 23, 35),   -- Background color
+    Sidebar = Color3.fromRGB(20, 19, 30),      -- Sidebar color
+    Card = Color3.fromRGB(34, 32, 48),         -- Card/Panel color
+    Element = Color3.fromRGB(24, 23, 35),      -- Element color
+    Input = Color3.fromRGB(16, 15, 23),        -- Input/Highlight color
+    Outlines = Color3.fromRGB(50, 48, 68),     -- Outline color borders) 
+    Text = Color3.fromRGB(245, 245, 250), -- Color of the main text 
+    TextMuted = Color3.fromRGB(145, 142, 165), -- Subtext color 
+    BackgroundTrans = 0, -- Background -- (0.00-1.00, for example 0.56)
+    BgImageTrans = 1, -- Bg Image -- (0.00-1.00, for example 0.56)
+    CardTrans = 0, -- Cards & Panels -- (0.00-1.00, for example 0.56)
+    ElementTrans = 0, -- Elements -- (0.00-1.00, for example 0.56)
+    InputTrans = 0, -- Inputs -- (0.00-1.00, for example 0.56)
+    BackgroundImage = "", -- Bg Image ID (for example "123456") 
+    TextFont = "Gotham", -- Primary Font (Font from Enum.Font) 
+    SubtextFont = "Gotham", -- Subtext Font (Font from Enum.Font) 
+    MainOutlineEnabled = false, -- Main GUI Outline (true / false) 
+    InternalOutlines = "Off", -- Internal Outlines ("Off", "Only Blocks", "Only Elements", "All") 
+    ElementStyle = 1, -- GUI Style (1, 2, 3, 4) 
+    CloseAnimation = 4, -- Close Animation (1 = Fade Slide Down, 2 = Fade Slide Up, 3 = Zoom Fade, 4 = Slide Right) 
+    TopbarAlign = "Right", -- Topbar Elements Pos ("Right", "Left") 
+    ShowSearchBar = true, -- Show Search Bar (true / false) 
+    ShowProfile = true, -- Show Profile (true / false) 
+    DropShadows = true, -- Drop Shadows (true / false) 
+    CornerRadius = 20, -- Main Corner Radius (0 - 30) 
+    ElementsCornerRadius = 20, -- Elements Corner Radius (0 - 30) 
+    HUDCornerRadius = 10, -- HUD (Watertmark, Keybinds, Notify) (0-30) 
+    SidebarPosition = "Left", -- Sidebar Position ("Left", "Right", "Top", "Bottom") 
+    DetachedSidebar = false, -- Detached Sidebar (true / false) 
+    TogglePosition = "Right", -- Toggle Checkbox Pos ("Right", "Left") 
+  } 
+}) 
 ```
 
 ## Tabs and Blocks
