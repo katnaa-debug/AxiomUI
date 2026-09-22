@@ -2433,8 +2433,7 @@ function Library.CreateWindow(config)
 
 			local rgbLayout = Instance.new("UIListLayout")
 			rgbLayout.FillDirection = Enum.FillDirection.Horizontal
-			rgbLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-			rgbLayout.Padding = UDim.new(0, 8)
+			rgbLayout.HorizontalAlignment = Enum.HorizontalAlignment.SpaceBetween
 			rgbLayout.SortOrder = Enum.SortOrder.LayoutOrder
 			rgbLayout.Parent = rgbContainer
 
@@ -7136,7 +7135,7 @@ function Library.CreateWindow(config)
 						elseif Window._themeElements[id] then
 							Window._themeElements[id].API:Load(val)
 						end
-					end
+					en
 					Window:Notify({
 						Title = "Theme System",
 						Description = "Auto-loaded theme: " .. tAutoName,
