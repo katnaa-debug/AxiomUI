@@ -39,15 +39,17 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/katna
 --// WINDOW
 --//====================================================
 
+
 local Window = Library.CreateWindow({
-  Title = "MERCURY",                  -- String (Any text for the hub name)
+  Title = "Axiom",                  -- String (Any text for the hub name)
   Logo = 118685771787843,             -- Number or String (Image ID: as a number or "rbxassetid://..." format)
   Description = "v1.0.0 Showcase",    -- String (Description text below the sidebar)
   Collapsed = false,                  -- Boolean (true / false) - Whether to start the menu in a compact (collapsed) state
   NotificationPosition = "TopRight",  -- String ("TopRight", "TopLeft", "BottomRight", "BottomLeft") - Corner for notifications
-  ConfigFolder = "MERCURY_CFG",       -- String (Name of the workspace folder for saving configs)
+  ConfigFolder = "AXIOM_CFG",       -- String (Name of the workspace folder for saving configs)
   Watermark = true,                   -- Boolean (true / false) - Enable watermark by default
   Keybinds = true,
+  WindowSize = Vector2.new(650, 600),
   Theme = {
     Accent = Color3.fromRGB(110, 100, 255),    -- Accent color
     Background = Color3.fromRGB(24, 23, 35),   -- Background color
@@ -58,12 +60,12 @@ local Window = Library.CreateWindow({
     Outlines = Color3.fromRGB(50, 48, 68),     -- Outline color borders) 
     Text = Color3.fromRGB(245, 245, 250), -- Color of the main text 
     TextMuted = Color3.fromRGB(145, 142, 165), -- Subtext color 
-    BackgroundTrans = 0, -- Background -- (0.00-1.00, for example 0.56)
-    BgImageTrans = 1, -- Bg Image -- (0.00-1.00, for example 0.56)
-    CardTrans = 0, -- Cards & Panels -- (0.00-1.00, for example 0.56)
-    ElementTrans = 0, -- Elements -- (0.00-1.00, for example 0.56)
-    InputTrans = 0, -- Inputs -- (0.00-1.00, for example 0.56)
-    BackgroundImage = "", -- Bg Image ID (for example "123456") 
+    BackgroundTrans = 0, -- Background 
+    BgImageTrans = 1, -- Bg Image 
+    CardTrans = 0, -- Cards & Panels 
+    ElementTrans = 0, -- Elements 
+    InputTrans = 0, -- Inputs 
+    BackgroundImage = "", -- Bg Image ID (for example "rbxassetid://123456") 
     TextFont = "Gotham", -- Primary Font (Font from Enum.Font) 
     SubtextFont = "Gotham", -- Subtext Font (Font from Enum.Font) 
     MainOutlineEnabled = false, -- Main GUI Outline (true / false) 
@@ -82,6 +84,7 @@ local Window = Library.CreateWindow({
     TogglePosition = "Right", -- Toggle Checkbox Pos ("Right", "Left") 
   } 
 }) 
+
 ```
 
 ## Tabs and Blocks
