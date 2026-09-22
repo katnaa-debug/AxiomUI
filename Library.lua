@@ -3108,6 +3108,9 @@ function Library.CreateWindow(config)
 				dropPopup.GroupTransparency = 0
 				dropPopup.Visible = true
 				
+				selectedBox.BackgroundTransparency = 1
+				selectedText.Visible = false
+				arrow.Visible = false
 				selectedBoxStroke.Enabled = false
 				
 				headerBtn.Size = UDim2.new(1, 0, 0, boxH)
@@ -3118,9 +3121,7 @@ function Library.CreateWindow(config)
 				Window.Overlay.Visible = true
 				Window.ActivePopup = dropPopup
 
-				Window.ActivePopupClose = function()
-					selectedBoxStroke.Enabled = (THEME.InternalOutlines == "Only Elements" or THEME.InternalOutlines == "All")
-					
+				Window.ActivePopupClose = function()					
 					local closeTween = TS:Create(dropPopup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 						Size = UDim2.new(0, boxW, 0, boxH)
 					})
@@ -3133,6 +3134,12 @@ function Library.CreateWindow(config)
 					conn = closeTween.Completed:Connect(function()
 						conn:Disconnect()
 						dropPopup.Visible = false
+						
+						ApplyTheme(selectedBox, "InputTrans", "BackgroundTransparency")
+						selectedText.Visible = true
+						arrow.Visible = true
+						selectedBoxStroke.Enabled = (THEME.InternalOutlines == "Only Elements" or THEME.InternalOutlines == "All")
+
 						if not Window.ActivePopup then Window.Overlay.Visible = false end
 					end)
 				end
