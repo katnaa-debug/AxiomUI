@@ -2408,7 +2408,7 @@ function Library.CreateWindow(config)
 			popupCorner.Parent = popup
 			CS:AddTag(popupCorner, "ElementCorner")
 			
-			attachStroke(popup, "ElementStroke")
+			local popupStroke = attachStroke(popup, "ElementStroke")
 
 			local popupPadding = Instance.new("UIPadding")
 			popupPadding.Name = "PopupPadding"
@@ -2424,6 +2424,66 @@ function Library.CreateWindow(config)
 			popupLayout.Padding = UDim.new(0, 10)
 			popupLayout.Parent = popup
 
+			local rgbContainer = Instance.new("Frame")
+			rgbContainer.Name = "RGBContainer"
+			rgbContainer.Size = UDim2.new(1, 0, 0, 24)
+			rgbContainer.BackgroundTransparency = 1
+			rgbContainer.LayoutOrder = 1
+			rgbContainer.Parent = popup
+
+			local rgbLayout = Instance.new("UIListLayout")
+			rgbLayout.FillDirection = Enum.FillDirection.Horizontal
+			rgbLayout.HorizontalAlignment = Enum.HorizontalAlignment.SpaceBetween
+			rgbLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			rgbLayout.Parent = rgbContainer
+
+			local rInput, gInput, bInput
+			local function createRGBBox(name, order, prefix)
+				local box = Instance.new("Frame")
+				box.Name = name .. "Box"
+				box.Size = UDim2.new(0, 48, 1, 0)
+				box.LayoutOrder = order
+				box.Parent = rgbContainer
+				ApplyTheme(box, "Input", "BackgroundColor3")
+				ApplyTheme(box, "InputTrans", "BackgroundTransparency")
+
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = GLOBAL_CORNER
+				corner.Parent = box
+				CS:AddTag(corner, "ElementCorner")
+
+				attachStroke(box, "ElementStroke")
+
+				local lbl = Instance.new("TextLabel")
+				lbl.Size = UDim2.new(0, 16, 1, 0)
+				lbl.Position = UDim2.new(0, 4, 0, 0)
+				lbl.BackgroundTransparency = 1
+				lbl.Text = prefix
+				lbl.TextSize = 11
+				lbl.Font = Enum.Font.GothamMedium
+				lbl.TextXAlignment = Enum.TextXAlignment.Left
+				lbl.Parent = box
+				ApplyTheme(lbl, "TextMuted", "TextColor3")
+				ApplyTheme(lbl, "TextFont", "Font")
+
+				local inp = Instance.new("TextBox")
+				inp.Size = UDim2.new(1, -20, 1, 0)
+				inp.Position = UDim2.new(0, 16, 0, 0)
+				inp.BackgroundTransparency = 1
+				inp.Text = "255"
+				inp.TextSize = 11
+				inp.Font = Enum.Font.Gotham
+				inp.TextXAlignment = Enum.TextXAlignment.Center
+				inp.Parent = box
+				ApplyTheme(inp, "Text", "TextColor3")
+				ApplyTheme(inp, "TextFont", "Font")
+				return inp
+			end
+
+			rInput = createRGBBox("R", 1, "R:")
+			gInput = createRGBBox("G", 2, "G:")
+			bInput = createRGBBox("B", 3, "B:")
+
 			local svSquare = Instance.new("TextButton")
 			svSquare.Name = "SVSquare"
 			svSquare.Size = UDim2.new(1, 0, 0, 160)
@@ -2431,7 +2491,7 @@ function Library.CreateWindow(config)
 			svSquare.BorderSizePixel = 0
 			svSquare.AutoButtonColor = false
 			svSquare.Text = ""
-			svSquare.LayoutOrder = 1
+			svSquare.LayoutOrder = 2
 			svSquare.Parent = popup
 			
 			local svSquareCorner = Instance.new("UICorner")
@@ -2500,7 +2560,7 @@ function Library.CreateWindow(config)
 			hueSlider.BorderSizePixel = 0
 			hueSlider.AutoButtonColor = false
 			hueSlider.Text = ""
-			hueSlider.LayoutOrder = 2
+			hueSlider.LayoutOrder = 3
 			hueSlider.Parent = popup
 			
 			local hueSliderCorner = Instance.new("UICorner")
@@ -2540,14 +2600,38 @@ function Library.CreateWindow(config)
 			hueKnobStroke.Color = Color3.new(0, 0, 0)
 			hueKnobStroke.Parent = hueKnob
 
-			local function updateColors()
-				currentColor = Color3.fromHSV(h, s, v)
+			local function updateColors(fromRGB)
+				if not fromRGB then
+					currentColor = Color3.fromHSV(h, s, v)
+					rInput.Text = tostring(math.round(currentColor.R * 255))
+					gInput.Text = tostring(math.round(currentColor.G * 255))
+					bInput.Text = tostring(math.round(currentColor.B * 255))
+				else
+					currentColor = Color3.fromHSV(h, s, v)
+				end
 				previewBox.BackgroundColor3 = currentColor
 				hueOverlay.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
 				dot.Position = UDim2.new(s, 0, 1 - v, 0)
 				hueKnob.Position = UDim2.new(h, 0, 0.5, 0)
 				callback(currentColor)
 			end
+			updateColors(false)
+
+			local function onRGBFocusLost()
+				local r = math.clamp(tonumber(rInput.Text) or math.round(currentColor.R * 255), 0, 255)
+				local g = math.clamp(tonumber(gInput.Text) or math.round(currentColor.G * 255), 0, 255)
+				local b = math.clamp(tonumber(bInput.Text) or math.round(currentColor.B * 255), 0, 255)
+				rInput.Text = tostring(r)
+				gInput.Text = tostring(g)
+				bInput.Text = tostring(b)
+				local newColor = Color3.fromRGB(r, g, b)
+				h, s, v = newColor:ToHSV()
+				updateColors(true)
+			end
+			
+			table.insert(Window._connections, rInput.FocusLost:Connect(onRGBFocusLost))
+			table.insert(Window._connections, gInput.FocusLost:Connect(onRGBFocusLost))
+			table.insert(Window._connections, bInput.FocusLost:Connect(onRGBFocusLost))
 
 			table.insert(Window._connections, previewBox.MouseButton1Click:Connect(function()
 				if Window.ActivePopup == popup then return Window.ClosePopup() end
@@ -2562,12 +2646,24 @@ function Library.CreateWindow(config)
 				Window.Overlay.Visible = true
 				Window.ActivePopup = popup
 				
-				popup.Size = UDim2.new(0, 180 * 0.9, 0, 210 * 0.9)
+				popup.Size = UDim2.new(0, 180 * 0.9, 0, 244 * 0.9)
 				popup.Visible = true
 				
+				if popupStroke then popupStroke.Transparency = 0 end
+				
+				Window.ActivePopupClose = function()
+					local fadeInfo = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+					TS:Create(popup, fadeInfo, {GroupTransparency = 1}):Play()
+					if popupStroke then TS:Create(popupStroke, fadeInfo, {Transparency = 1}):Play() end
+					task.delay(0.18, function()
+						popup.Visible = false
+						if not Window.ActivePopup then Window.Overlay.Visible = false end
+					end)
+				end
+
 				TS:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 					GroupTransparency = 0,
-					Size = UDim2.new(0, 180, 0, 210)
+					Size = UDim2.new(0, 180, 0, 244)
 				}):Play()
 			end))
 
@@ -2577,7 +2673,7 @@ function Library.CreateWindow(config)
 				local relY = math.clamp((input.Position.Y - svSquare.AbsolutePosition.Y) / svSquare.AbsoluteSize.Y, 0, 1)
 				s = relX
 				v = 1 - relY
-				updateColors()
+				updateColors(false)
 			end
 			table.insert(Window._connections, svSquare.InputBegan:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -2599,7 +2695,7 @@ function Library.CreateWindow(config)
 			local function moveHue(input)
 				local relX = math.clamp((input.Position.X - hueSlider.AbsolutePosition.X) / hueSlider.AbsoluteSize.X, 0, 1)
 				h = relX
-				updateColors()
+				updateColors(false)
 			end
 			table.insert(Window._connections, hueSlider.InputBegan:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -2620,7 +2716,7 @@ function Library.CreateWindow(config)
 			local api = {}
 			function api:SetColor(c)
 				h, s, v = c:ToHSV()
-				updateColors()
+				updateColors(false)
 			end
 			return api
 		end
@@ -4052,232 +4148,7 @@ function Library.CreateWindow(config)
 					end
 				end
 				
-				local h, s, v = defaultColor:ToHSV()
-				
-				local popup = Instance.new("CanvasGroup")
-				popup.Name = "ColorPopup"
-				popup.BorderSizePixel = 0
-				popup.AnchorPoint = Vector2.new(1, 0)
-				popup.GroupTransparency = 1
-				popup.Visible = false
-				popup.ZIndex = 100000
-				popup.Parent = screenGui 
-				ApplyTheme(popup, "Background", "BackgroundColor3")
-				ApplyTheme(popup, "BackgroundTrans", "BackgroundTransparency")
-				
-				local popupCorner = Instance.new("UICorner")
-				popupCorner.CornerRadius = UDim.new(0, 10)
-				popupCorner.Parent = popup
-				CS:AddTag(popupCorner, "ElementCorner")
-				
-				attachStroke(popup, "ElementStroke")
-
-				local popupPadding = Instance.new("UIPadding")
-				popupPadding.Name = "PopupPadding"
-				popupPadding.PaddingTop = UDim.new(0, 10)
-				popupPadding.PaddingBottom = UDim.new(0, 10)
-				popupPadding.PaddingLeft = UDim.new(0, 10)
-				popupPadding.PaddingRight = UDim.new(0, 10)
-				popupPadding.Parent = popup
-
-				local popupLayout = Instance.new("UIListLayout")
-				popupLayout.Name = "PopupLayout"
-				popupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-				popupLayout.Padding = UDim.new(0, 10)
-				popupLayout.Parent = popup
-
-				local svSquare = Instance.new("TextButton")
-				svSquare.Name = "SVSquare"
-				svSquare.Size = UDim2.new(1, 0, 0, 160)
-				svSquare.BackgroundColor3 = Color3.new(1, 1, 1)
-				svSquare.BorderSizePixel = 0
-				svSquare.AutoButtonColor = false
-				svSquare.Text = ""
-				svSquare.LayoutOrder = 1
-				svSquare.Parent = popup
-				
-				local svSquareCorner = Instance.new("UICorner")
-				svSquareCorner.CornerRadius = UDim.new(0, 6)
-				svSquareCorner.Parent = svSquare
-				CS:AddTag(svSquareCorner, "ElementCorner")
-
-				local hueOverlay = Instance.new("Frame")
-				hueOverlay.Name = "HueOverlay"
-				hueOverlay.Size = UDim2.new(1, 0, 1, 0)
-				hueOverlay.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-				hueOverlay.BorderSizePixel = 0
-				hueOverlay.Parent = svSquare
-				
-				local hueOverlayCorner = Instance.new("UICorner")
-				hueOverlayCorner.CornerRadius = UDim.new(0, 6)
-				hueOverlayCorner.Parent = hueOverlay
-				CS:AddTag(hueOverlayCorner, "ElementCorner")
-				
-				local hueGrad = Instance.new("UIGradient")
-				hueGrad.Name = "HueGradient"
-				hueGrad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})
-				hueGrad.Parent = hueOverlay
-
-				local blackOverlay = Instance.new("Frame")
-				blackOverlay.Name = "BlackOverlay"
-				blackOverlay.Size = UDim2.new(1, 0, 1, 0)
-				blackOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
-				blackOverlay.BorderSizePixel = 0
-				blackOverlay.Parent = svSquare
-				
-				local blackOverlayCorner = Instance.new("UICorner")
-				blackOverlayCorner.CornerRadius = UDim.new(0, 6)
-				blackOverlayCorner.Parent = blackOverlay
-				CS:AddTag(blackOverlayCorner, "ElementCorner")
-
-				local blackGrad = Instance.new("UIGradient")
-				blackGrad.Name = "BlackGradient"
-				blackGrad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})
-				blackGrad.Rotation = 90
-				blackGrad.Parent = blackOverlay
-
-				local dot = Instance.new("Frame")
-				dot.Name = "Dot"
-				dot.Size = UDim2.new(0, 10, 0, 10)
-				dot.AnchorPoint = Vector2.new(0.5, 0.5)
-				dot.Position = UDim2.new(s, 0, 1 - v, 0)
-				dot.BackgroundColor3 = Color3.new(1, 1, 1)
-				dot.BorderSizePixel = 0
-				dot.Parent = svSquare
-				
-				local dotCorner = Instance.new("UICorner")
-				dotCorner.CornerRadius = UDim.new(1, 0)
-				dotCorner.Parent = dot
-				
-				local dotStroke = Instance.new("UIStroke")
-				dotStroke.Name = "DotStroke"
-				dotStroke.Color = Color3.new(0, 0, 0)
-				dotStroke.Thickness = 1
-				dotStroke.Parent = dot
-
-				local hueSlider = Instance.new("TextButton")
-				hueSlider.Name = "HueSlider"
-				hueSlider.Size = UDim2.new(1, 0, 0, 12)
-				hueSlider.BackgroundColor3 = Color3.new(1, 1, 1)
-				hueSlider.BorderSizePixel = 0
-				hueSlider.AutoButtonColor = false
-				hueSlider.Text = ""
-				hueSlider.LayoutOrder = 2
-				hueSlider.Parent = popup
-				
-				local hueSliderCorner = Instance.new("UICorner")
-				hueSliderCorner.CornerRadius = UDim.new(0, 6)
-				hueSliderCorner.Parent = hueSlider
-				CS:AddTag(hueSliderCorner, "ElementCorner")
-
-				local rainbowGrad = Instance.new("UIGradient")
-				rainbowGrad.Name = "RainbowGradient"
-				rainbowGrad.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-					ColorSequenceKeypoint.new(1/6, Color3.fromRGB(255, 255, 0)),
-					ColorSequenceKeypoint.new(2/6, Color3.fromRGB(0, 255, 0)),
-					ColorSequenceKeypoint.new(3/6, Color3.fromRGB(0, 255, 255)),
-					ColorSequenceKeypoint.new(4/6, Color3.fromRGB(0, 0, 255)),
-					ColorSequenceKeypoint.new(5/6, Color3.fromRGB(255, 0, 255)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
-				})
-				rainbowGrad.Parent = hueSlider
-
-				local hueKnob = Instance.new("Frame")
-				hueKnob.Name = "HueKnob"
-				hueKnob.Size = UDim2.new(0, 4, 1, 4)
-				hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-				hueKnob.Position = UDim2.new(h, 0, 0.5, 0)
-				hueKnob.BackgroundColor3 = Color3.new(1, 1, 1)
-				hueKnob.BorderSizePixel = 0
-				hueKnob.Parent = hueSlider
-				
-				local hueKnobCorner = Instance.new("UICorner")
-				hueKnobCorner.CornerRadius = UDim.new(1, 0)
-				hueKnobCorner.Parent = hueKnob
-				CS:AddTag(hueKnobCorner, "ElementCorner")
-				
-				local hueKnobStroke = Instance.new("UIStroke")
-				hueKnobStroke.Name = "HueKnobStroke"
-				hueKnobStroke.Color = Color3.new(0, 0, 0)
-				hueKnobStroke.Parent = hueKnob
-
-				updateColors = function(fireCb)
-					currentColor = Color3.fromHSV(h, s, v)
-					previewBox.BackgroundColor3 = currentColor
-					hueOverlay.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-					dot.Position = UDim2.new(s, 0, 1 - v, 0)
-					hueKnob.Position = UDim2.new(h, 0, 0.5, 0)
-					if fireCb then updateColorCallback(currentColor) end
-				end
-				
-				table.insert(Window._connections, previewBox.MouseButton1Click:Connect(function()
-					if Window.ActivePopup == popup then return Window.ClosePopup() end
-					Window.ClosePopup()
-					
-					local absX = previewBox.AbsolutePosition.X - Window.Overlay.AbsolutePosition.X + previewBox.AbsoluteSize.X + 10
-					local absY = previewBox.AbsolutePosition.Y - Window.Overlay.AbsolutePosition.Y
-					
-					popup.Parent = Window.Overlay
-					popup.Position = UDim2.new(0, absX, 0, absY)
-					
-					Window.Overlay.Visible = true
-					Window.ActivePopup = popup
-					
-					popup.Size = UDim2.new(0, 180 * 0.9, 0, 210 * 0.9)
-					popup.Visible = true
-					
-					TS:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-						GroupTransparency = 0,
-						Size = UDim2.new(0, 180, 0, 210)
-					}):Play()
-				end))
-
-				local draggingSV = false
-				local function moveSV(input)
-					local relX = math.clamp((input.Position.X - svSquare.AbsolutePosition.X) / svSquare.AbsoluteSize.X, 0, 1)
-					local relY = math.clamp((input.Position.Y - svSquare.AbsolutePosition.Y) / svSquare.AbsoluteSize.Y, 0, 1)
-					s = relX
-					v = 1 - relY
-					updateColors(true)
-				end
-				table.insert(Window._connections, svSquare.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						draggingSV = true; moveSV(input)
-					end
-				end))
-				table.insert(Window._connections, UIS.InputChanged:Connect(function(input)
-					if draggingSV and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-						moveSV(input)
-					end
-				end))
-				table.insert(Window._connections, UIS.InputEnded:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						draggingSV = false
-					end
-				end))
-
-				local draggingHue = false
-				local function moveHue(input)
-					local relX = math.clamp((input.Position.X - hueSlider.AbsolutePosition.X) / hueSlider.AbsoluteSize.X, 0, 1)
-					h = relX
-					updateColors(true)
-				end
-				table.insert(Window._connections, hueSlider.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						draggingHue = true; moveHue(input)
-					end
-				end))
-				table.insert(Window._connections, UIS.InputChanged:Connect(function(input)
-					if draggingHue and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-						moveHue(input)
-					end
-				end))
-				table.insert(Window._connections, UIS.InputEnded:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-						draggingHue = false
-					end
-				end))
+				updateColors = AttachColorPicker(previewBox, defaultColor, updateColorCallback)
 			end
 			
 			if hasKeybind then
@@ -4496,16 +4367,8 @@ function Library.CreateWindow(config)
 			function api:SetColor(newColor)
 				if not hasColorpicker then return end
 				currentColor = newColor
-				previewBox.BackgroundColor3 = currentColor
 				if updateColors then 
-					local c_h, c_s, c_v = newColor:ToHSV()
-				end
-				if callback then
-					if hasKeybind then
-						callback(state, currentColor, bind)
-					else
-						callback(state, currentColor)
-					end
+					updateColors:SetColor(newColor)
 				end
 			end
 			function api:SetKeybind(newKey)
