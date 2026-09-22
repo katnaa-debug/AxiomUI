@@ -714,18 +714,38 @@ function Library.CreateWindow(config)
 	editModeCC.Saturation = 0
 	editModeCC.Parent = Lighting
 	
+	local uiScaleValue = isMobile and 0.65 or 1
+	local finalW, finalH
+	do
+		local targetSize = config.WindowSize or Vector2.new(950, 600)
+		local reqW = typeof(targetSize) == "Vector2" and targetSize.X or targetSize[1] or 950
+		local reqH = typeof(targetSize) == "Vector2" and targetSize.Y or targetSize[2] or 600
+		
+		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+		local maxAvailW = (viewport.X / uiScaleValue) - 40 
+		local maxAvailH = (viewport.Y / uiScaleValue) - 40 
+		
+		local minUIW = isMobile and 350 or 500
+		local minUIH = isMobile and 250 or 350
+		
+		finalW = math.clamp(reqW, minUIW, math.max(minUIW, maxAvailW))
+		finalH = math.clamp(reqH, minUIH, math.max(minUIH, maxAvailH))
+	end
+
 	local wrapper = Instance.new("Frame")
 	wrapper.Name = "Wrapper"
 	wrapper.AnchorPoint = Vector2.new(0.5, 0.5)
-	wrapper.Size = isMobile and UDim2.new(0, 700, 0, 450) or UDim2.new(0, 950, 0, 600)
+	wrapper.Size = UDim2.new(0, finalW, 0, finalH)
 	wrapper.Position = UDim2.new(0.5, 0, 0.5, 0)
 	wrapper.BackgroundTransparency = 1
 	wrapper.Active = true 
 	wrapper.Parent = screenGui
 
-	local uiScale = Instance.new("UIScale")
-	uiScale.Scale = isMobile and 0.65 or 1
-	uiScale.Parent = wrapper
+	do
+		local uiScale = Instance.new("UIScale")
+		uiScale.Scale = uiScaleValue
+		uiScale.Parent = wrapper
+	end
 
 	local contentWrapper = Instance.new("Frame")
 	contentWrapper.Name = "ContentWrapper"
@@ -902,74 +922,75 @@ function Library.CreateWindow(config)
 	resizeHitbox.ZIndex = 20
 	resizeHitbox.Parent = wrapper
 
-	local WINDOW_CORNER = cornerRadiusNum
-	local GAP = 5
-	local STROKE_THICKNESS = 4
-	local R_CENTER = WINDOW_CORNER + GAP 
-	local FRAME_RADIUS = R_CENTER - (STROKE_THICKNESS / 2) 
-	local OUTER_RADIUS = R_CENTER + (STROKE_THICKNESS / 2) 
-	local CAP_OFFSET = 4 
-	local CAP_X = math.sqrt(math.max(0, R_CENTER^2 - CAP_OFFSET^2)) + 0.5 
-	local CAP_SIZE = STROKE_THICKNESS + 0.6 
-	
-	local arcMaster = Instance.new("Frame")
-	arcMaster.Name = "ArcMaster"
-	arcMaster.Size = UDim2.new(0, OUTER_RADIUS, 0, OUTER_RADIUS)
-	arcMaster.Position = UDim2.new(1, -WINDOW_CORNER, 1, -WINDOW_CORNER) 
-	arcMaster.BackgroundTransparency = 1
-	arcMaster.ZIndex = 3
-	arcMaster.Parent = contentWrapper
+	local arcOuterStroke, topCap, leftCap
+	do
+		local WINDOW_CORNER = cornerRadiusNum
+		local GAP = 5
+		local STROKE_THICKNESS = 4
+		local R_CENTER = WINDOW_CORNER + GAP 
+		local FRAME_RADIUS = R_CENTER - (STROKE_THICKNESS / 2) 
+		local OUTER_RADIUS = R_CENTER + (STROKE_THICKNESS / 2) 
+		local CAP_OFFSET = 4 
+		local CAP_X = math.sqrt(math.max(0, R_CENTER^2 - CAP_OFFSET^2)) + 0.5 
+		local CAP_SIZE = STROKE_THICKNESS + 0.6 
+		
+		local arcMaster = Instance.new("Frame")
+		arcMaster.Name = "ArcMaster"
+		arcMaster.Size = UDim2.new(0, OUTER_RADIUS, 0, OUTER_RADIUS)
+		arcMaster.Position = UDim2.new(1, -WINDOW_CORNER, 1, -WINDOW_CORNER) 
+		arcMaster.BackgroundTransparency = 1
+		arcMaster.ZIndex = 3
+		arcMaster.Parent = contentWrapper
 
-	local arcClipped = Instance.new("Frame")
-	arcClipped.Name = "ArcClipped"
-	arcClipped.Size = UDim2.new(1, -CAP_OFFSET, 1, -CAP_OFFSET)
-	arcClipped.Position = UDim2.new(0, CAP_OFFSET, 0, CAP_OFFSET)
-	arcClipped.BackgroundTransparency = 1
-	arcClipped.ClipsDescendants = true
-	arcClipped.Parent = arcMaster
+		local arcClipped = Instance.new("Frame")
+		arcClipped.Name = "ArcClipped"
+		arcClipped.Size = UDim2.new(1, -CAP_OFFSET, 1, -CAP_OFFSET)
+		arcClipped.Position = UDim2.new(0, CAP_OFFSET, 0, CAP_OFFSET)
+		arcClipped.BackgroundTransparency = 1
+		arcClipped.ClipsDescendants = true
+		arcClipped.Parent = arcMaster
 
-	local arcOuter = Instance.new("Frame")
-	arcOuter.Name = "ArcOuter"
-	arcOuter.Size = UDim2.new(0, FRAME_RADIUS * 2, 0, FRAME_RADIUS * 2) 
-	arcOuter.Position = UDim2.new(0, -CAP_OFFSET, 0, -CAP_OFFSET) 
-	arcOuter.AnchorPoint = Vector2.new(0.5, 0.5) 
-	arcOuter.BackgroundTransparency = 1
-	arcOuter.Parent = arcClipped
-	
-	local arcOuterCorner = Instance.new("UICorner")
-	arcOuterCorner.CornerRadius = UDim.new(0, FRAME_RADIUS)
-	arcOuterCorner.Parent = arcOuter
-	CS:AddTag(arcOuterCorner, "MainCorner")
+		local arcOuter = Instance.new("Frame")
+		arcOuter.Name = "ArcOuter"
+		arcOuter.Size = UDim2.new(0, FRAME_RADIUS * 2, 0, FRAME_RADIUS * 2) 
+		arcOuter.Position = UDim2.new(0, -CAP_OFFSET, 0, -CAP_OFFSET) 
+		arcOuter.AnchorPoint = Vector2.new(0.5, 0.5) 
+		arcOuter.BackgroundTransparency = 1
+		arcOuter.Parent = arcClipped
+		
+		local arcOuterCorner = Instance.new("UICorner")
+		arcOuterCorner.CornerRadius = UDim.new(0, FRAME_RADIUS)
+		arcOuterCorner.Parent = arcOuter
+		CS:AddTag(arcOuterCorner, "MainCorner")
 
-	local arcOuterStroke = Instance.new("UIStroke")
-	arcOuterStroke.Name = "ArcOuterStroke"
-	arcOuterStroke.Thickness = STROKE_THICKNESS
-	arcOuterStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border 
-	arcOuterStroke.Parent = arcOuter
-	ApplyTheme(arcOuterStroke, "TextMuted", "Color")
+		arcOuterStroke = Instance.new("UIStroke")
+		arcOuterStroke.Name = "ArcOuterStroke"
+		arcOuterStroke.Thickness = STROKE_THICKNESS
+		arcOuterStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border 
+		arcOuterStroke.Parent = arcOuter
+		ApplyTheme(arcOuterStroke, "TextMuted", "Color")
 
-	local topCap = Instance.new("Frame")
-	topCap.Name = "TopCap"
-	topCap.Size = UDim2.new(0, CAP_SIZE, 0, CAP_SIZE)
-	topCap.Position = UDim2.new(0, CAP_X, 0, CAP_OFFSET) 
-	topCap.AnchorPoint = Vector2.new(0.5, 0.5)
-	topCap.BorderSizePixel = 0
-	topCap.Parent = arcMaster
-	ApplyTheme(topCap, "TextMuted", "BackgroundColor3")
-	
-	local topCapCorner = Instance.new("UICorner")
-	topCapCorner.CornerRadius = UDim.new(1, 0)
-	topCapCorner.Parent = topCap
+		topCap = Instance.new("Frame")
+		topCap.Name = "TopCap"
+		topCap.Size = UDim2.new(0, CAP_SIZE, 0, CAP_SIZE)
+		topCap.Position = UDim2.new(0, CAP_X, 0, CAP_OFFSET) 
+		topCap.AnchorPoint = Vector2.new(0.5, 0.5)
+		topCap.BorderSizePixel = 0
+		topCap.Parent = arcMaster
+		ApplyTheme(topCap, "TextMuted", "BackgroundColor3")
+		
+		local topCapCorner = Instance.new("UICorner")
+		topCapCorner.CornerRadius = UDim.new(1, 0)
+		topCapCorner.Parent = topCap
 
-	local leftCap = topCap:Clone()
-	leftCap.Name = "LeftCap"
-	leftCap.Position = UDim2.new(0, CAP_OFFSET, 0, CAP_X) 
-	leftCap.Parent = arcMaster
+		leftCap = topCap:Clone()
+		leftCap.Name = "LeftCap"
+		leftCap.Position = UDim2.new(0, CAP_OFFSET, 0, CAP_X) 
+		leftCap.Parent = arcMaster
+	end
 
 	local resizing = false
 	local resizeStartPos, resizeStartSize
-	local minW = isMobile and 350 or 700
-	local minH = isMobile and 250 or 450
 
 	table.insert(Window._connections, resizeHitbox.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -991,10 +1012,15 @@ function Library.CreateWindow(config)
 		if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local scaleMultiplier = isMobile and 0.65 or 1
 			local delta = (input.Position - resizeStartPos) / scaleMultiplier
+			
 			local sw, sh = screenGui.AbsoluteSize.X, screenGui.AbsoluteSize.Y
-			local maxW = isMobile and math.max(minW, (sw / scaleMultiplier) - 20) or 1400
-			local maxH = isMobile and math.max(minH, (sh / scaleMultiplier) - 20) or 1000
-			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + (delta.X * 2), minW, maxW), 0, math.clamp(resizeStartSize.Y + (delta.Y * 2), minH, maxH))
+			
+			local minResW = isMobile and 350 or 500
+			local minResH = isMobile and 250 or 350
+			local maxResW = math.max(minResW, (sw / scaleMultiplier) - 40)
+			local maxResH = math.max(minResH, (sh / scaleMultiplier) - 40)
+			
+			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + (delta.X * 2), minResW, maxResW), 0, math.clamp(resizeStartSize.Y + (delta.Y * 2), minResH, maxResH))
 		end
 	end))
 
@@ -1338,71 +1364,73 @@ function Library.CreateWindow(config)
 	
 	attachStroke(profileBlock, "BlockStroke")
 
-	local profilePadding = Instance.new("UIPadding")
-	profilePadding.Name = "ProfilePadding"
-	profilePadding.PaddingLeft = UDim.new(0, 15)
-	profilePadding.PaddingRight = UDim.new(0, 5)
-	profilePadding.Parent = profileBlock
+	do
+		local profilePadding = Instance.new("UIPadding")
+		profilePadding.Name = "ProfilePadding"
+		profilePadding.PaddingLeft = UDim.new(0, 15)
+		profilePadding.PaddingRight = UDim.new(0, 5)
+		profilePadding.Parent = profileBlock
 
-	local profileLayout = Instance.new("UIListLayout")
-	profileLayout.Name = "ProfileLayout"
-	profileLayout.FillDirection = Enum.FillDirection.Horizontal
-	profileLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	profileLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	profileLayout.Padding = UDim.new(0, 10)
-	profileLayout.Parent = profileBlock
+		local profileLayout = Instance.new("UIListLayout")
+		profileLayout.Name = "ProfileLayout"
+		profileLayout.FillDirection = Enum.FillDirection.Horizontal
+		profileLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		profileLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		profileLayout.Padding = UDim.new(0, 10)
+		profileLayout.Parent = profileBlock
 
-	local namesContainer = Instance.new("Frame")
-	namesContainer.Name = "NamesContainer"
-	namesContainer.AutomaticSize = Enum.AutomaticSize.X
-	namesContainer.Size = UDim2.new(0, 0, 1, 0)
-	namesContainer.BackgroundTransparency = 1
-	namesContainer.LayoutOrder = 1
-	namesContainer.Parent = profileBlock
+		local namesContainer = Instance.new("Frame")
+		namesContainer.Name = "NamesContainer"
+		namesContainer.AutomaticSize = Enum.AutomaticSize.X
+		namesContainer.Size = UDim2.new(0, 0, 1, 0)
+		namesContainer.BackgroundTransparency = 1
+		namesContainer.LayoutOrder = 1
+		namesContainer.Parent = profileBlock
 
-	local namesLayout = Instance.new("UIListLayout")
-	namesLayout.Name = "NamesLayout"
-	namesLayout.FillDirection = Enum.FillDirection.Vertical
-	namesLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	namesLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	namesLayout.Padding = UDim.new(0, 2)
-	namesLayout.Parent = namesContainer
+		local namesLayout = Instance.new("UIListLayout")
+		namesLayout.Name = "NamesLayout"
+		namesLayout.FillDirection = Enum.FillDirection.Vertical
+		namesLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		namesLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		namesLayout.Padding = UDim.new(0, 2)
+		namesLayout.Parent = namesContainer
 
-	local displayName = Instance.new("TextLabel")
-	displayName.Name = "DisplayName"
-	displayName.AutomaticSize = Enum.AutomaticSize.X
-	displayName.Size = UDim2.new(0, 0, 0, 14)
-	displayName.BackgroundTransparency = 1
-	displayName.TextSize = 13
-	displayName.Text = LP.DisplayName
-	displayName.TextTruncate = Enum.TextTruncate.AtEnd
-	displayName.Parent = namesContainer
-	ApplyTheme(displayName, "Text", "TextColor3")
-	ApplyTheme(displayName, "TextFont", "Font")
+		local displayName = Instance.new("TextLabel")
+		displayName.Name = "DisplayName"
+		displayName.AutomaticSize = Enum.AutomaticSize.X
+		displayName.Size = UDim2.new(0, 0, 0, 14)
+		displayName.BackgroundTransparency = 1
+		displayName.TextSize = 13
+		displayName.Text = LP.DisplayName
+		displayName.TextTruncate = Enum.TextTruncate.AtEnd
+		displayName.Parent = namesContainer
+		ApplyTheme(displayName, "Text", "TextColor3")
+		ApplyTheme(displayName, "TextFont", "Font")
 
-	local userName = Instance.new("TextLabel")
-	userName.Name = "UserName"
-	userName.AutomaticSize = Enum.AutomaticSize.X
-	userName.Size = UDim2.new(0, 0, 0, 12)
-	userName.BackgroundTransparency = 1
-	userName.TextSize = 11
-	userName.Text = "@" .. LP.Name
-	userName.TextTruncate = Enum.TextTruncate.AtEnd
-	userName.Parent = namesContainer
-	ApplyTheme(userName, "TextMuted", "TextColor3")
-	ApplyTheme(userName, "SubtextFont", "Font")
+		local userName = Instance.new("TextLabel")
+		userName.Name = "UserName"
+		userName.AutomaticSize = Enum.AutomaticSize.X
+		userName.Size = UDim2.new(0, 0, 0, 12)
+		userName.BackgroundTransparency = 1
+		userName.TextSize = 11
+		userName.Text = "@" .. LP.Name
+		userName.TextTruncate = Enum.TextTruncate.AtEnd
+		userName.Parent = namesContainer
+		ApplyTheme(userName, "TextMuted", "TextColor3")
+		ApplyTheme(userName, "SubtextFont", "Font")
 
-	local avatarImage = Instance.new("ImageLabel")
-	avatarImage.Name = "AvatarImage"
-	avatarImage.Size = UDim2.new(0, 32, 0, 32)
-	avatarImage.BackgroundTransparency = 1
-	avatarImage.Image = Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-	avatarImage.LayoutOrder = 2
-	avatarImage.Parent = profileBlock
-	
-	local avatarCorner = Instance.new("UICorner")
-	avatarCorner.CornerRadius = UDim.new(1, 0)
-	avatarCorner.Parent = avatarImage
+		local avatarImage = Instance.new("ImageLabel")
+		avatarImage.Name = "AvatarImage"
+		avatarImage.Size = UDim2.new(0, 32, 0, 32)
+		avatarImage.BackgroundTransparency = 1
+		avatarImage.Image = Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+		avatarImage.LayoutOrder = 2
+		avatarImage.Parent = profileBlock
+		
+		local avatarCorner = Instance.new("UICorner")
+		avatarCorner.CornerRadius = UDim.new(1, 0)
+		avatarCorner.Parent = avatarImage
+	end
 
 	local searchContainer = Instance.new("Frame")
 	searchContainer.Name = "SearchContainer"
