@@ -5,14 +5,15 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/katna
 --//====================================================
 
 local Window = Library.CreateWindow({
-  Title = "MERCURY",                  -- String (Any text for the hub name)
+  Title = "Axiom",                  -- String (Any text for the hub name)
   Logo = 118685771787843,             -- Number or String (Image ID: as a number or "rbxassetid://..." format)
   Description = "v1.0.0 Showcase",    -- String (Description text below the sidebar)
   Collapsed = false,                  -- Boolean (true / false) - Whether to start the menu in a compact (collapsed) state
   NotificationPosition = "TopRight",  -- String ("TopRight", "TopLeft", "BottomRight", "BottomLeft") - Corner for notifications
-  ConfigFolder = "MERCURY_CFG",       -- String (Name of the workspace folder for saving configs)
+  ConfigFolder = "AXIOM_CFG",       -- String (Name of the workspace folder for saving configs)
   Watermark = true,                   -- Boolean (true / false) - Enable watermark by default
   Keybinds = true,
+  WindowSize = Vector2.new(650, 600),
   Theme = {
     Accent = Color3.fromRGB(110, 100, 255),    -- Accent color
     Background = Color3.fromRGB(24, 23, 35),   -- Background color
