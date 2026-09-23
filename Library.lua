@@ -6284,13 +6284,17 @@ function Library.CreateWindow(config)
 		kbDivider.Parent = kbHeader
 		ApplyTheme(kbDivider, "Outlines", "BackgroundColor3")
 
-		local kbEntries = Instance.new("Frame")
+		local kbEntries = Instance.new("ScrollingFrame")
 		kbEntries.Name = "Entries"
 		kbEntries.Size = UDim2.new(1, 0, 0, 0)
-		kbEntries.AutomaticSize = Enum.AutomaticSize.Y
 		kbEntries.Position = UDim2.new(0, 0, 0, 29)
 		kbEntries.BackgroundTransparency = 1
+		kbEntries.BorderSizePixel = 0
+		kbEntries.ScrollBarThickness = 2
+		kbEntries.CanvasSize = UDim2.new(0, 0, 0, 0)
+		kbEntries.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		kbEntries.Parent = kbMain
+		ApplyTheme(kbEntries, "Outlines", "ScrollBarImageColor3")
 
 		local kbLayout = Instance.new("UIListLayout")
 		kbLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -6496,6 +6500,11 @@ function Library.CreateWindow(config)
 				emptyLbl.Parent = kbEntries
 				ApplyTheme(emptyLbl, "TextMuted", "TextColor3")
 				ApplyTheme(emptyLbl, "SubtextFont", "Font")
+				kbEntries.Size = UDim2.new(1, 0, 0, 32)
+			else
+				local visibleCount = math.min(count, 10)
+				local targetHeight = 14 + (visibleCount * 22) + ((visibleCount - 1) * 4)
+				kbEntries.Size = UDim2.new(1, 0, 0, targetHeight)
 			end
 		end
 
