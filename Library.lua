@@ -203,7 +203,7 @@ local shortKeys = {
 
 local function getShortKey(keyObj)
 	if type(keyObj) == "string" then return keyObj end
-	if not keyObj then return "None" end
+	if not keyObj or keyObj == Enum.KeyCode.Unknown then return "None" end
 	return shortKeys[keyObj.Name] or keyObj.Name
 end
 
@@ -4037,7 +4037,7 @@ function Library.CreateWindow(config)
 						isBinding = false
 					end
 				else
-					if bind and input.KeyCode == bind then
+					if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
 						callback()
 					end
 				end
@@ -4394,7 +4394,7 @@ function Library.CreateWindow(config)
 							end
 						end
 					else
-						if bind and input.KeyCode == bind then
+						if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
 							state = not state
 							updateToggle()
 						end
@@ -5102,7 +5102,7 @@ function Library.CreateWindow(config)
 						end
 					end
 				else
-					if bind and input.KeyCode == bind then
+					if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
 						if cfg.Callback then 
 							pcall(function() cfg.Callback(bind) end)
 						end
