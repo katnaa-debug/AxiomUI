@@ -73,6 +73,8 @@ local function safeListFiles(folder)
     return {}
 end
 
+
+
 local function parseAsset(input)
 	if type(input) == "number" then return "rbxassetid://" .. tostring(input) end
 	if not input or input == "" then return "" end
@@ -6625,18 +6627,14 @@ function Library.CreateWindow(config)
 			Side = "Left"
 		})
 	
-		if not _isfolder(Window.ThemeFolder) then
-			pcall(function() _makefolder(Window.ThemeFolder) end)
-		end
+		safeMakeFolder(Window.ThemeFolder)
 	
 		local function getThemes()
 			local list = {}
-			if _isfolder(Window.ThemeFolder) then
-				for _, file in ipairs(_listfiles(Window.ThemeFolder)) do
-					if file:match("%.json$") then
-						local name = file:match("([^/\\]+)%.json$")
-						if name then table.insert(list, name) end
-					end
+			for _, file in ipairs(safeListFiles(Window.ThemeFolder)) do
+				if file:match("%.json$") then
+					local name = file:match("([^/\\]+)%.json$")
+					if name then table.insert(list, name) end
 				end
 			end
 			return list
@@ -6654,25 +6652,28 @@ function Library.CreateWindow(config)
 	
 		ThemeSaveBlock:CreateButton({
 			Name = "Load Theme",
-		Callback = function()
+			Callback = function()
 				local tName = themeDropdown:Save().Selected
 				if tName and tName ~= "" then
 					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					local success, res = pcall(function() return HttpService:JSONDecode(_readfile(path)) end)
-					if success and type(res) == "table" then
-						for id, val in pairs(res) do
-							if id == "SidebarWidth" then
-								updateSidebarWidth(val)
-							elseif Window._themeElements[id] then
-								Window._themeElements[id].API:Load(val)
+					local raw = safeReadFile(path)
+					if raw and raw ~= "" then
+						local success, res = pcall(function() return HttpService:JSONDecode(raw) end)
+						if success and type(res) == "table" then
+							for id, val in pairs(res) do
+								if id == "SidebarWidth" then
+									updateSidebarWidth(val)
+								elseif Window._themeElements[id] then
+									Window._themeElements[id].API:Load(val)
+								end
 							end
+							Window:Notify({
+								Title = "Theme System",
+								Description = "Loaded theme: " .. tName,
+								Duration = 3,
+								Icon = SETTINGS_ICON_ID
+							})
 						end
-						Window:Notify({
-							Title = "Theme System",
-							Description = "Loaded theme: " .. tName,
-							Duration = 3,
-							Icon = SETTINGS_ICON_ID
-						})
 					end
 				end
 			end
@@ -6680,7 +6681,7 @@ function Library.CreateWindow(config)
 	
 		ThemeSaveBlock:CreateButton({
 			Name = "Save Theme",
-		Callback = function()
+			Callback = function()
 				local tName = themeNameInput:Save().Text
 				if tName and tName ~= "" then
 					local data = {}
@@ -6694,9 +6695,9 @@ function Library.CreateWindow(config)
 					end
 					data["SidebarWidth"] = currentSidebarWidth
 				
-					if not _isfolder(Window.ThemeFolder) then pcall(function() _makefolder(Window.ThemeFolder) end) end
+					safeMakeFolder(Window.ThemeFolder)
 					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					pcall(function() _writefile(path, HttpService:JSONEncode(data)) end)
+					safeWriteFile(path, HttpService:JSONEncode(data))
 					themeDropdown:SetOptions(getThemes())
 					themeDropdown:Set(tName)
 					Window:Notify({
@@ -6711,11 +6712,11 @@ function Library.CreateWindow(config)
 	
 		ThemeSaveBlock:CreateButton({
 			Name = "Delete Theme",
-		Callback = function()
+			Callback = function()
 				local tName = themeDropdown:Save().Selected
 				if tName and tName ~= "" then
 					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					pcall(function() _delfile(path) end)
+					safeDelFile(path)
 					themeDropdown:SetOptions(getThemes())
 					themeDropdown:Set(nil)
 					Window:Notify({
@@ -6729,22 +6730,21 @@ function Library.CreateWindow(config)
 		})
 	
 		local themeAutoLoadPath = Window.ThemeFolder .. "/autoload_theme.txt"
-		local currentThemeAutoLoad = ""
-		pcall(function() currentThemeAutoLoad = _readfile(themeAutoLoadPath) end)
+		local currentThemeAutoLoad = safeReadFile(themeAutoLoadPath) or ""
 	
 		ThemeSaveBlock:CreateToggle({
 			Name = "Auto-Load Selected Theme",
 			Default = (currentThemeAutoLoad ~= ""),
-		Callback = function(state)
+			Callback = function(state)
 				if state then
 					local tName = themeDropdown:Save().Selected
 					if tName and tName ~= "" then
-						pcall(function() _writefile(themeAutoLoadPath, tName) end)
+						safeWriteFile(themeAutoLoadPath, tName)
 					else
 						Window:Notify({Title = "Error", Description = "Please select a theme first to auto-load.", Duration = 3})
 					end
 				else
-					pcall(function() _delfile(themeAutoLoadPath) end)
+					safeDelFile(themeAutoLoadPath)
 				end
 			end
 		})
@@ -7259,45 +7259,48 @@ function Library.CreateWindow(config)
 		end
 	})
 	
-		if customTheme.ShowSearchBar ~= nil then searchContainer.Visible = customTheme.ShowSearchBar end
-		if customTheme.ShowProfile ~= nil then profileBlock.Visible = customTheme.ShowProfile end
-		if customTheme.ElementsCornerRadius ~= nil then
-			for _, corner in ipairs(CS:GetTagged("ElementCorner")) do 
-				corner.CornerRadius = UDim.new(0, customTheme.ElementsCornerRadius) 
-			end
+	if customTheme.ShowSearchBar ~= nil then searchContainer.Visible = customTheme.ShowSearchBar end
+	if customTheme.ShowProfile ~= nil then profileBlock.Visible = customTheme.ShowProfile end
+	if customTheme.ElementsCornerRadius ~= nil then
+		for _, corner in ipairs(CS:GetTagged("ElementCorner")) do 
+			corner.CornerRadius = UDim.new(0, customTheme.ElementsCornerRadius) 
 		end
+	end
+
+	UpdateTopbarAlign(THEME.TopbarAlign)
+	UpdateTogglePosition(THEME.TogglePosition)
+
+	mainOutlineStroke.Enabled = THEME.MainOutlineEnabled
+	mainOutlineStroke.Transparency = 0
+	sidebarOutlineStroke.Enabled = (THEME.MainOutlineEnabled and SIDEBAR_STATE.Detached)
+	sidebarOutlineStroke.Transparency = 0
+	for _, ns in ipairs(CS:GetTagged("NotificationStrokeBind")) do
+		ns.Enabled = THEME.MainOutlineEnabled
+	end
+	for _, ws in ipairs(CS:GetTagged("WatermarkStrokeBind")) do
+		ws.Enabled = THEME.MainOutlineEnabled
+	end
+	for _, ls in ipairs(CS:GetTagged("EditorLeftOutlineBind")) do
+		ls.Enabled = THEME.MainOutlineEnabled
+	end
+
+	local showBlocks = (THEME.InternalOutlines == "Only Blocks" or THEME.InternalOutlines == "All")
+	local showElems = (THEME.InternalOutlines == "Only Elements" or THEME.InternalOutlines == "All")
+	for _, stroke in ipairs(CS:GetTagged("BlockStroke")) do stroke.Enabled = showBlocks end
+	for _, stroke in ipairs(CS:GetTagged("ElementStroke")) do stroke.Enabled = showElems end
+
+	updateSidebarWidth(currentSidebarWidth)
+
+	task.spawn(function()
+		task.wait(1.5)
 	
-		UpdateTopbarAlign(THEME.TopbarAlign)
-		UpdateTogglePosition(THEME.TogglePosition)
-	
-		mainOutlineStroke.Enabled = THEME.MainOutlineEnabled
-		mainOutlineStroke.Transparency = 0
-		sidebarOutlineStroke.Enabled = (THEME.MainOutlineEnabled and SIDEBAR_STATE.Detached)
-		sidebarOutlineStroke.Transparency = 0
-		for _, ns in ipairs(CS:GetTagged("NotificationStrokeBind")) do
-			ns.Enabled = THEME.MainOutlineEnabled
-		end
-		for _, ws in ipairs(CS:GetTagged("WatermarkStrokeBind")) do
-			ws.Enabled = THEME.MainOutlineEnabled
-		end
-		for _, ls in ipairs(CS:GetTagged("EditorLeftOutlineBind")) do
-			ls.Enabled = THEME.MainOutlineEnabled
-		end
-	
-		local showBlocks = (THEME.InternalOutlines == "Only Blocks" or THEME.InternalOutlines == "All")
-		local showElems = (THEME.InternalOutlines == "Only Elements" or THEME.InternalOutlines == "All")
-		for _, stroke in ipairs(CS:GetTagged("BlockStroke")) do stroke.Enabled = showBlocks end
-		for _, stroke in ipairs(CS:GetTagged("ElementStroke")) do stroke.Enabled = showElems end
-	
-		updateSidebarWidth(currentSidebarWidth)
-	
-		task.spawn(function()
-			task.wait(1.5)
-		
-			local ts, tAutoName = pcall(function() return _readfile(themeAutoLoadPath) end)
-			if ts and tAutoName and tAutoName ~= "" then
-				local tPath = Window.ThemeFolder .. "/" .. tAutoName .. ".json"
-				local ts2, tRes = pcall(function() return HttpService:JSONDecode(_readfile(tPath)) end)
+		local tAutoName = safeReadFile(themeAutoLoadPath)
+		if tAutoName and tAutoName ~= "" then
+			tAutoName = tAutoName:match("^%s*(.-)%s*$")
+			local tPath = Window.ThemeFolder .. "/" .. tAutoName .. ".json"
+			local rawTheme = safeReadFile(tPath)
+			if rawTheme and rawTheme ~= "" then
+				local ts2, tRes = pcall(function() return HttpService:JSONDecode(rawTheme) end)
 				if ts2 and type(tRes) == "table" then
 					for id, val in pairs(tRes) do
 						if id == "SidebarWidth" then
@@ -7314,32 +7317,34 @@ function Library.CreateWindow(config)
 					})
 				end
 			end
-	
-			task.wait(0.5)
-	
-			local autoName = safeReadFile(autoLoadPath)
-			if autoName and autoName ~= "" then
-				autoName = autoName:match("^%s*(.-)%s*$")
-				local path = Window.ConfigFolder .. "/" .. autoName .. ".json"
-				local rawJson = safeReadFile(path)
-				if rawJson and rawJson ~= "" then
-					local s2, res = pcall(function() return HttpService:JSONDecode(rawJson) end)
-					if s2 and type(res) == "table" then
-						for id, val in pairs(res) do
-							if Window._configElements[id] then
-								pcall(function() Window._configElements[id].API:Load(val) end)
-							end
+		end
+
+		task.wait(0.5)
+
+		local autoName = safeReadFile(autoLoadPath)
+		if autoName and autoName ~= "" then
+			autoName = autoName:match("^%s*(.-)%s*$")
+			local path = Window.ConfigFolder .. "/" .. autoName .. ".json"
+			local rawJson = safeReadFile(path)
+			if rawJson and rawJson ~= "" then
+				local s2, res = pcall(function() return HttpService:JSONDecode(rawJson) end)
+				if s2 and type(res) == "table" then
+					for id, val in pairs(res) do
+						if Window._configElements[id] then
+							pcall(function() Window._configElements[id].API:Load(val) end)
 						end
-						Window:Notify({
-							Title = "Config System",
-							Description = "Auto-loaded config: " .. autoName,
-							Duration = 3,
-							Icon = SETTINGS_ICON_ID
-						})
 					end
+					Window:Notify({
+						Title = "Config System",
+						Description = "Auto-loaded config: " .. autoName,
+						Duration = 3,
+						Icon = SETTINGS_ICON_ID
+					})
 				end
 			end
-	
-		return Window
-	end
+		end
+	end)
+
+	return Window
+end
 return Library
