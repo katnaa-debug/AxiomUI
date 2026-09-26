@@ -11,12 +11,67 @@ local HttpService = game:GetService("HttpService")
 local StatsService = game:GetService("Stats")
 local isMobile = UIS.TouchEnabled
 
-local _isfolder = isfolder or function() return false end
-local _makefolder = makefolder or function() end
-local _listfiles = listfiles or function() return {} end
-local _readfile = readfile or function() return "" end
-local _writefile = writefile or function() end
-local _delfile = delfile or function() end
+local function getFS()
+    local g = (getgenv and getgenv()) or _G or {}
+    return {
+        isfolder = isfolder or g.isfolder,
+        makefolder = makefolder or g.makefolder,
+        listfiles = listfiles or listdir or g.listfiles or g.listdir,
+        readfile = readfile or g.readfile,
+        writefile = writefile or g.writefile,
+        delfile = delfile or g.delfile
+    }
+end
+
+local function safeIsFolder(path)
+    local fs = getFS()
+    if fs.isfolder then
+        local s, res = pcall(fs.isfolder, path)
+        return s and res
+    end
+    return false
+end
+
+local function safeMakeFolder(path)
+    local fs = getFS()
+    if fs.makefolder and not safeIsFolder(path) then
+        pcall(fs.makefolder, path)
+    end
+end
+
+local function safeWriteFile(path, content)
+    local fs = getFS()
+    if fs.writefile then
+        return pcall(fs.writefile, path, content)
+    end
+    return false, "writefile not supported"
+end
+
+local function safeReadFile(path)
+    local fs = getFS()
+    if fs.readfile then
+        local s, content = pcall(fs.readfile, path)
+        if s then return content end
+    end
+    return nil
+end
+
+local function safeDelFile(path)
+    local fs = getFS()
+    if fs.delfile then
+        return pcall(fs.delfile, path)
+    end
+    return false
+end
+
+local function safeListFiles(folder)
+    local fs = getFS()
+    if fs.listfiles then
+        local s, files = pcall(fs.listfiles, folder)
+        if s and type(files) == "table" then return files end
+    end
+    return {}
+end
 
 local function parseAsset(input)
 	if type(input) == "number" then return "rbxassetid://" .. tostring(input) end
@@ -7052,18 +7107,15 @@ function Library.CreateWindow(config)
 		Side = "Right"
 	})
 	
-	if not _isfolder(Window.ConfigFolder) then
-		pcall(function() _makefolder(Window.ConfigFolder) end)
-	end
+	safeMakeFolder(Window.ConfigFolder)
 	
 	local function getConfigs()
 		local list = {}
-		if _isfolder(Window.ConfigFolder) then
-			for _, file in ipairs(_listfiles(Window.ConfigFolder)) do
-				if file:match("%.json$") then
-					local name = file:match("([^/\\]+)%.json$")
-					if name then table.insert(list, name) end
-				end
+		safeMakeFolder(Window.ConfigFolder)
+		for _, file in ipairs(safeListFiles(Window.ConfigFolder)) do
+			if file:match("%.json$") then
+				local name = file:match("([^/\\]+)%.json$")
+				if name then table.insert(list, name) end
 			end
 		end
 		return list
@@ -7082,93 +7134,130 @@ function Library.CreateWindow(config)
 	configBlock:CreateButton({
 		Name = "Load Config",
 		Callback = function()
-				local cfgName = configDropdown:Save().Selected
-				if cfgName and cfgName ~= "" then
-					local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
-					local success, res = pcall(function() return HttpService:JSONDecode(_readfile(path)) end)
-					if success and type(res) == "table" then
-						for id, val in pairs(res) do
-							if Window._configElements[id] then
-								Window._configElements[id].API:Load(val)
-							end
-						end
-						Window:Notify({
-							Title = "Config System",
-							Description = "Loaded config: " .. cfgName,
-							Duration = 3,
-							Icon = SETTINGS_ICON_ID
-						})
+			local cfgName = configDropdown:Save().Selected
+			if not cfgName or cfgName == "" then
+				Window:Notify({Title = "Config Error", Description = "No config selected.", Duration = 3})
+				return
+			end
+			
+			local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
+			local raw = safeReadFile(path)
+			if not raw or raw == "" then
+				Window:Notify({Title = "Config Error", Description = "File is empty or cannot be read.", Duration = 3})
+				return
+			end
+
+			local success, res = pcall(function() return HttpService:JSONDecode(raw) end)
+			if success and type(res) == "table" then
+				for id, val in pairs(res) do
+					if Window._configElements[id] then
+						pcall(function() Window._configElements[id].API:Load(val) end)
 					end
 				end
+				Window:Notify({
+					Title = "Config System",
+					Description = "Loaded config: " .. cfgName,
+					Duration = 3,
+					Icon = SETTINGS_ICON_ID
+				})
+			else
+				Window:Notify({Title = "Config Error", Description = "Failed to parse JSON file.", Duration = 3})
 			end
-		})
+		end
+	})
 	
-		configBlock:CreateButton({
-			Name = "Save Config",
+	configBlock:CreateButton({
+		Name = "Save Config",
 		Callback = function()
-				local cfgName = configNameInput:Save().Text
-				if cfgName and cfgName ~= "" then
-					local data = {}
-					for id, el in pairs(Window._configElements) do
-						local savedData = el.API:Save()
-						if savedData then
-							data[id] = savedData
-						end
-					end
-					if not _isfolder(Window.ConfigFolder) then pcall(function() _makefolder(Window.ConfigFolder) end) end
-					local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
-					pcall(function() _writefile(path, HttpService:JSONEncode(data)) end)
-					configDropdown:SetOptions(getConfigs())
-					configDropdown:Set(cfgName)
-					Window:Notify({
-						Title = "Config System",
-						Description = "Saved config: " .. cfgName,
-						Duration = 3,
-						Icon = SETTINGS_ICON_ID
-					})
+			local cfgName = configNameInput:Save().Text
+			if not cfgName or cfgName == "" then
+				cfgName = configDropdown:Save().Selected
+			end
+			
+			if not cfgName or cfgName == "" then
+				Window:Notify({Title = "Config Error", Description = "Enter a config name first.", Duration = 3})
+				return
+			end
+			
+			safeMakeFolder(Window.ConfigFolder)
+			
+			local data = {}
+			for id, el in pairs(Window._configElements) do
+				local s, savedData = pcall(function() return el.API:Save() end)
+				if s and savedData ~= nil then
+					data[id] = savedData
 				end
 			end
-		})
-	
-		configBlock:CreateButton({
-			Name = "Delete Config",
-		Callback = function()
-				local cfgName = configDropdown:Save().Selected
-				if cfgName and cfgName ~= "" then
-					local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
-					pcall(function() _delfile(path) end)
-					configDropdown:SetOptions(getConfigs())
-					configDropdown:Set(nil)
-					Window:Notify({
-						Title = "Config System",
-						Description = "Deleted config: " .. cfgName,
-						Duration = 3,
-						Icon = SETTINGS_ICON_ID
-					})
-				end
+			
+			local sEncode, json = pcall(function() return HttpService:JSONEncode(data) end)
+			if not sEncode then
+				Window:Notify({Title = "Config Error", Description = "JSON serialization failed.", Duration = 3})
+				return
 			end
-		})
+
+			local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
+			local sWrite, err = safeWriteFile(path, json)
+			if sWrite then
+				configDropdown:SetOptions(getConfigs())
+				configDropdown:Set(cfgName)
+				Window:Notify({
+					Title = "Config System",
+					Description = "Saved config: " .. cfgName,
+					Duration = 3,
+					Icon = SETTINGS_ICON_ID
+				})
+			else
+				Window:Notify({Title = "Config Error", Description = "Executor blocked writing file: " .. tostring(err), Duration = 4})
+			end
+		end
+	})
+
+	configBlock:CreateButton({
+		Name = "Refresh List",
+		Callback = function()
+			configDropdown:SetOptions(getConfigs())
+			Window:Notify({Title = "Config System", Description = "Config list refreshed.", Duration = 2})
+		end
+	})
 	
-		local autoLoadPath = Window.ConfigFolder .. "/autoload.txt"
-		local currentAutoLoad = ""
-		pcall(function() currentAutoLoad = _readfile(autoLoadPath) end)
+	configBlock:CreateButton({
+		Name = "Delete Config",
+		Callback = function()
+			local cfgName = configDropdown:Save().Selected
+			if cfgName and cfgName ~= "" then
+				local path = Window.ConfigFolder .. "/" .. cfgName .. ".json"
+				safeDelFile(path)
+				configDropdown:SetOptions(getConfigs())
+				configDropdown:Set(nil)
+				Window:Notify({
+					Title = "Config System",
+					Description = "Deleted config: " .. cfgName,
+					Duration = 3,
+					Icon = SETTINGS_ICON_ID
+				})
+			end
+		end
+	})
 	
-		configBlock:CreateToggle({
-			Name = "Auto-Load Selected Config",
-			Default = (currentAutoLoad ~= ""),
+	local autoLoadPath = Window.ConfigFolder .. "/autoload.txt"
+	local currentAutoLoad = safeReadFile(autoLoadPath) or ""
+
+	configBlock:CreateToggle({
+		Name = "Auto-Load Selected Config",
+		Default = (currentAutoLoad ~= ""),
 		Callback = function(state)
-				if state then
-					local cfgName = configDropdown:Save().Selected
-					if cfgName and cfgName ~= "" then
-						pcall(function() _writefile(autoLoadPath, cfgName) end)
-					else
-						Window:Notify({Title = "Error", Description = "Please select a config first to auto-load.", Duration = 3})
-					end
+			if state then
+				local cfgName = configDropdown:Save().Selected
+				if cfgName and cfgName ~= "" then
+					safeWriteFile(autoLoadPath, cfgName)
 				else
-					pcall(function() _delfile(autoLoadPath) end)
+					Window:Notify({Title = "Error", Description = "Please select a config first to auto-load.", Duration = 3})
 				end
+			else
+				safeDelFile(autoLoadPath)
 			end
-		})
+		end
+	})
 	
 		if customTheme.ShowSearchBar ~= nil then searchContainer.Visible = customTheme.ShowSearchBar end
 		if customTheme.ShowProfile ~= nil then profileBlock.Visible = customTheme.ShowProfile end
@@ -7228,25 +7317,28 @@ function Library.CreateWindow(config)
 	
 			task.wait(0.5)
 	
-			local s, autoName = pcall(function() return _readfile(autoLoadPath) end)
-			if s and autoName and autoName ~= "" then
+			local autoName = safeReadFile(autoLoadPath)
+			if autoName and autoName ~= "" then
+				autoName = autoName:match("^%s*(.-)%s*$")
 				local path = Window.ConfigFolder .. "/" .. autoName .. ".json"
-				local s2, res = pcall(function() return HttpService:JSONDecode(_readfile(path)) end)
-				if s2 and type(res) == "table" then
-					for id, val in pairs(res) do
-						if Window._configElements[id] then
-							Window._configElements[id].API:Load(val)
+				local rawJson = safeReadFile(path)
+				if rawJson and rawJson ~= "" then
+					local s2, res = pcall(function() return HttpService:JSONDecode(rawJson) end)
+					if s2 and type(res) == "table" then
+						for id, val in pairs(res) do
+							if Window._configElements[id] then
+								pcall(function() Window._configElements[id].API:Load(val) end)
+							end
 						end
+						Window:Notify({
+							Title = "Config System",
+							Description = "Auto-loaded config: " .. autoName,
+							Duration = 3,
+							Icon = SETTINGS_ICON_ID
+						})
 					end
-					Window:Notify({
-						Title = "Config System",
-						Description = "Auto-loaded config: " .. autoName,
-						Duration = 3,
-						Icon = SETTINGS_ICON_ID
-					})
 				end
 			end
-		end)
 	
 		return Window
 	end
