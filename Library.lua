@@ -13,13 +13,14 @@ local isMobile = UIS.TouchEnabled
 
 local function getFS()
     local g = (getgenv and getgenv()) or _G or {}
+    local env = (getfenv and getfenv()) or {}
     return {
-        isfolder = isfolder or g.isfolder,
-        makefolder = makefolder or g.makefolder,
-        listfiles = listfiles or listdir or g.listfiles or g.listdir,
-        readfile = readfile or g.readfile,
-        writefile = writefile or g.writefile,
-        delfile = delfile or g.delfile
+        isfolder = isfolder or env.isfolder or g.isfolder,
+        makefolder = makefolder or env.makefolder or g.makefolder,
+        listfiles = listfiles or listdir or env.listfiles or env.listdir or g.listfiles or g.listdir,
+        readfile = readfile or env.readfile or g.readfile,
+        writefile = writefile or env.writefile or g.writefile,
+        delfile = delfile or deletefile or env.delfile or env.deletefile or g.delfile or g.deletefile
     }
 end
 
@@ -66,13 +67,37 @@ end
 
 local function safeListFiles(folder)
     local fs = getFS()
-    if fs.listfiles then
-        local s, files = pcall(fs.listfiles, folder)
-        if s and type(files) == "table" then return files end
+    if not fs.listfiles then return {} end
+
+
+    local s, files = pcall(fs.listfiles, folder)
+    if s and type(files) == "table" and next(files) ~= nil then return files end
+
+    local s2, files2 = pcall(fs.listfiles, folder .. "/")
+    if s2 and type(files2) == "table" and next(files2) ~= nil then return files2 end
+
+    local s3, files3 = pcall(fs.listfiles, "./" .. folder)
+    if s3 and type(files3) == "table" and next(files3) ~= nil then return files3 end
+
+    local s4, files4 = pcall(fs.listfiles, "")
+    if not s4 or type(files4) ~= "table" then
+        s4, files4 = pcall(fs.listfiles)
     end
+    if s4 and type(files4) == "table" then
+        local matched = {}
+        local targetFolder = folder:lower():gsub("[/\\]+$", "")
+        for _, f in pairs(files4) do
+            local fStr = tostring(f):lower():gsub("\\", "/")
+            if fStr:find(targetFolder .. "/", 1, true) then
+                table.insert(matched, f)
+            end
+        end
+        if #matched > 0 then return matched end
+    end
+
+    if s and type(files) == "table" then return files end
     return {}
 end
-
 
 
 local function parseAsset(input)
@@ -6631,10 +6656,14 @@ function Library.CreateWindow(config)
 	
 		local function getThemes()
 			local list = {}
-			for _, file in ipairs(safeListFiles(Window.ThemeFolder)) do
-				if file:match("%.json$") then
-					local name = file:match("([^/\\]+)%.json$")
-					if name then table.insert(list, name) end
+			safeMakeFolder(Window.ThemeFolder)
+			for _, file in pairs(safeListFiles(Window.ThemeFolder)) do
+				local clean = tostring(file):gsub("[%z\r\n%s]+$", "")
+				if clean:lower():match("%.json$") then
+					local name = clean:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
+					if name and name ~= "" then 
+						table.insert(list, name) 
+					end
 				end
 			end
 			return list
@@ -6648,6 +6677,21 @@ function Library.CreateWindow(config)
 		local themeDropdown = ThemeSaveBlock:CreateDropdown({
 			Name = "Select Theme",
 			Options = getThemes(),
+		})
+	
+		local themeAutoLoadPath = Window.ThemeFolder .. "/autoload_theme.txt"
+		local currentThemeAutoLoad = safeReadFile(themeAutoLoadPath)
+		currentThemeAutoLoad = currentThemeAutoLoad and currentThemeAutoLoad:match("^%s*(.-)%s*$") or ""
+
+		local themeNameInput = ThemeSaveBlock:CreateInput({
+			Name = "Theme Name",
+			Placeholder = "Enter theme name..."
+		})
+	
+		local themeDropdown = ThemeSaveBlock:CreateDropdown({
+			Name = "Select Theme",
+			Options = getThemes(),
+			Default = (currentThemeAutoLoad ~= "" and currentThemeAutoLoad or nil)
 		})
 	
 		ThemeSaveBlock:CreateButton({
@@ -6683,6 +6727,9 @@ function Library.CreateWindow(config)
 			Name = "Save Theme",
 			Callback = function()
 				local tName = themeNameInput:Save().Text
+				if not tName or tName == "" then
+					tName = themeDropdown:Save().Selected
+				end
 				if tName and tName ~= "" then
 					local data = {}
 					for id, el in pairs(Window._themeElements) do
@@ -6706,7 +6753,17 @@ function Library.CreateWindow(config)
 						Duration = 3,
 						Icon = SETTINGS_ICON_ID
 					})
+				else
+					Window:Notify({Title = "Theme Error", Description = "Enter a theme name first.", Duration = 3})
 				end
+			end
+		})
+
+		ThemeSaveBlock:CreateButton({
+			Name = "Refresh List",
+			Callback = function()
+				themeDropdown:SetOptions(getThemes())
+				Window:Notify({Title = "Theme System", Description = "Theme list refreshed.", Duration = 2})
 			end
 		})
 	
@@ -6729,13 +6786,12 @@ function Library.CreateWindow(config)
 			end
 		})
 	
-		local themeAutoLoadPath = Window.ThemeFolder .. "/autoload_theme.txt"
-		local currentThemeAutoLoad = safeReadFile(themeAutoLoadPath) or ""
-	
+		local isInitThemeAutoLoad = true
 		ThemeSaveBlock:CreateToggle({
 			Name = "Auto-Load Selected Theme",
 			Default = (currentThemeAutoLoad ~= ""),
 			Callback = function(state)
+				if isInitThemeAutoLoad then return end
 				if state then
 					local tName = themeDropdown:Save().Selected
 					if tName and tName ~= "" then
@@ -6748,6 +6804,7 @@ function Library.CreateWindow(config)
 				end
 			end
 		})
+		isInitThemeAutoLoad = false
 	
 		local function CreateThemeEditorBlock(name, sideName)
 			local blockContainer = Instance.new("Frame")
@@ -7112,15 +7169,22 @@ function Library.CreateWindow(config)
 	local function getConfigs()
 		local list = {}
 		safeMakeFolder(Window.ConfigFolder)
-		for _, file in ipairs(safeListFiles(Window.ConfigFolder)) do
-			if file:match("%.json$") then
-				local name = file:match("([^/\\]+)%.json$")
-				if name then table.insert(list, name) end
+		for _, file in pairs(safeListFiles(Window.ConfigFolder)) do
+			local clean = tostring(file):gsub("[%z\r\n%s]+$", "")
+			if clean:lower():match("%.json$") then
+				local name = clean:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
+				if name and name ~= "" then 
+					table.insert(list, name) 
+				end
 			end
 		end
 		return list
 	end
 	
+	local autoLoadPath = Window.ConfigFolder .. "/autoload.txt"
+	local currentAutoLoad = safeReadFile(autoLoadPath)
+	currentAutoLoad = currentAutoLoad and currentAutoLoad:match("^%s*(.-)%s*$") or ""
+
 	local configNameInput = configBlock:CreateInput({
 		Name = "Config Name",
 		Placeholder = "Enter name..."
@@ -7129,6 +7193,7 @@ function Library.CreateWindow(config)
 	local configDropdown = configBlock:CreateDropdown({
 		Name = "Select Config",
 		Options = getConfigs(),
+		Default = (currentAutoLoad ~= "" and currentAutoLoad or nil)
 	})
 	
 	configBlock:CreateButton({
@@ -7239,13 +7304,12 @@ function Library.CreateWindow(config)
 		end
 	})
 	
-	local autoLoadPath = Window.ConfigFolder .. "/autoload.txt"
-	local currentAutoLoad = safeReadFile(autoLoadPath) or ""
-
+	local isInitConfigAutoLoad = true
 	configBlock:CreateToggle({
 		Name = "Auto-Load Selected Config",
 		Default = (currentAutoLoad ~= ""),
 		Callback = function(state)
+			if isInitConfigAutoLoad then return end
 			if state then
 				local cfgName = configDropdown:Save().Selected
 				if cfgName and cfgName ~= "" then
@@ -7258,6 +7322,7 @@ function Library.CreateWindow(config)
 			end
 		end
 	})
+	isInitConfigAutoLoad = false
 	
 	if customTheme.ShowSearchBar ~= nil then searchContainer.Visible = customTheme.ShowSearchBar end
 	if customTheme.ShowProfile ~= nil then profileBlock.Visible = customTheme.ShowProfile end
@@ -7309,6 +7374,7 @@ function Library.CreateWindow(config)
 							Window._themeElements[id].API:Load(val)
 						end
 					end
+					themeDropdown:Set(tAutoName)
 					Window:Notify({
 						Title = "Theme System",
 						Description = "Auto-loaded theme: " .. tAutoName,
@@ -7334,6 +7400,7 @@ function Library.CreateWindow(config)
 							pcall(function() Window._configElements[id].API:Load(val) end)
 						end
 					end
+					configDropdown:Set(autoName)
 					Window:Notify({
 						Title = "Config System",
 						Description = "Auto-loaded config: " .. autoName,
