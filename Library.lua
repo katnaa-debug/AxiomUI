@@ -4581,8 +4581,26 @@ function Library.CreateWindow(config)
 			local slName = slConfig.Name or "Slider"
 			local min = slConfig.Min or 0
 			local max = slConfig.Max or 100
-			local step = slConfig.Step or 1
-			local default = slConfig.Default or min
+			local rawStep = slConfig.Step or 1
+			local step = math.max(0.01, rawStep)
+
+			local stepStr = tostring(step)
+			local decimals = 0
+			if stepStr:find("%.") then
+				decimals = math.clamp(#stepStr:split(".")[2], 0, 2)
+			end
+
+			local function roundVal(val)
+				val = math.clamp(val, min, max)
+				local snapped = math.round(val / step) * step
+				return tonumber(string.format("%." .. decimals .. "f", snapped))
+			end
+
+			local function formatVal(val)
+				return string.format("%." .. decimals .. "f", val)
+			end
+
+			local default = roundVal(slConfig.Default or min)
 			local callback = slConfig.Callback or function() end
 			local currentValue = default
 
@@ -4625,7 +4643,7 @@ function Library.CreateWindow(config)
 			valueInput.BackgroundTransparency = 1
 			valueInput.BorderSizePixel = 0
 			valueInput.TextSize = 12
-			valueInput.Text = tostring(default)
+			valueInput.Text = formatVal(default)
 			valueInput.TextTruncate = Enum.TextTruncate.AtEnd
 			valueInput.Font = Enum.Font.Gotham
 			valueInput.Parent = valueBox
@@ -4649,7 +4667,7 @@ function Library.CreateWindow(config)
 
 			local fill = Instance.new("Frame")
 			fill.Name = "Fill"
-			fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+			fill.Size = UDim2.new(math.clamp((default - min) / (max - min), 0, 1), 0, 1, 0)
 			fill.BorderSizePixel = 0
 			fill.Parent = track
 			ApplyTheme(fill, "Accent", "BackgroundColor3")
@@ -4713,10 +4731,9 @@ function Library.CreateWindow(config)
 			local function updateSlider(inputPos)
 				local relative = math.clamp((inputPos - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 				local rawValue = min + ((max - min) * relative)
-				local steppedValue = math.round(rawValue / step) * step
-				steppedValue = math.clamp(steppedValue, min, max)
+				local steppedValue = roundVal(rawValue)
 				currentValue = steppedValue
-				valueInput.Text = tostring(steppedValue)
+				valueInput.Text = formatVal(steppedValue)
 				TS:Create(fill, TweenInfo.new(0.1), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
 				callback(steppedValue)
 			end
@@ -4743,26 +4760,27 @@ function Library.CreateWindow(config)
 			table.insert(Window._connections, valueInput.FocusLost:Connect(function()
 				local num = tonumber(valueInput.Text)
 				if num then
-					num = math.clamp(math.round(num / step) * step, min, max)
-					currentValue = num
-					valueInput.Text = tostring(num)
-					TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((num - min) / (max - min), 0, 1, 0)}):Play()
-					callback(num)
+					local steppedValue = roundVal(num)
+					currentValue = steppedValue
+					valueInput.Text = formatVal(steppedValue)
+					TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
+					callback(steppedValue)
 				else
 					currentValue = min
-					valueInput.Text = tostring(min)
+					valueInput.Text = formatVal(min)
 					fill.Size = UDim2.new(0, 0, 1, 0)
+					callback(min)
 				end
 			end))
 			RegisterElement(slName, container)
 			
 			local api = {}
 			function api:Set(newVal)
-				newVal = math.clamp(math.round(newVal / step) * step, min, max)
-				currentValue = newVal
-				valueInput.Text = tostring(newVal)
-				TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((newVal - min) / (max - min), 0, 1, 0)}):Play()
-				callback(newVal)
+				local steppedValue = roundVal(newVal)
+				currentValue = steppedValue
+				valueInput.Text = formatVal(steppedValue)
+				TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
+				callback(steppedValue)
 			end
 			function api:Save()
 				return { Value = currentValue }
