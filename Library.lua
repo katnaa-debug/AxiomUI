@@ -6627,12 +6627,13 @@ function Library.CreateWindow(arg1, arg2)
 			local count = 0
 			for uniqueId, element in pairs(Window._configElements) do
 				local success, data = pcall(function() return element.API:Save() end)
-				if success and type(data) == "table" and data.Bind and data.Bind ~= "" and data.Bind ~= "Unknown" then
-					count = count + 1
-					local itemName = uniqueId:match("~[^~]+~([^~]+)$") or uniqueId
-					local isToggle = (element.Type == "Toggle")
-					local isActive = (data.State == true)
+				if success and type(data) == "table" and data.Bind and data.Bind ~= "" and data.Bind ~= "Unknown" and data.Bind ~= "None" then
 					local shortKeyTxt = shortKeys[data.Bind] or tostring(data.Bind)
+					if shortKeyTxt ~= "None" and shortKeyTxt ~= "Unknown" and shortKeyTxt ~= "" then
+						count = count + 1
+						local itemName = uniqueId:match("~[^~]+~([^~]+)$") or uniqueId
+						local isToggle = (element.Type == "Toggle")
+						local isActive = (data.State == true)
 
 					local row = Instance.new("Frame")
 					row.Name = "Row_" .. tostring(itemName)
@@ -6695,6 +6696,7 @@ function Library.CreateWindow(arg1, arg2)
 					badgePad.PaddingLeft = UDim.new(0, 5)
 					badgePad.PaddingRight = UDim.new(0, 5)
 					badgePad.Parent = badgeTxt
+					end
 				end
 			end
 
