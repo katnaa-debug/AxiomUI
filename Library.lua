@@ -292,8 +292,8 @@ end
 local SEARCH_ICON_ID = "rbxassetid://118685771787843"
 local SETTINGS_ICON_ID = "rbxassetid://7059346373"
 
-function Library.CreateWindow(config)
-	config = config or {}
+function Library.CreateWindow(arg1, arg2)
+	local config = (arg1 == Library and arg2) or (type(arg1) == "table" and arg1) or {}
 	local title = config.Title or "iu"
 	local searchPlaceholder = config.SearchPlaceholder or "Search components..."
 	local logoRaw = config.Logo or config.LogoIcon
@@ -579,9 +579,14 @@ function Library.CreateWindow(config)
 
 		local startTime = os.clock()
 		local connection
+		local lastFormatted = ""
 		connection = RS.RenderStepped:Connect(function()
 			local remaining = math.max(0, nDuration - (os.clock() - startTime))
-			timeLabel.Text = string.format("%.1fs", remaining)
+			local formatted = string.format("%.1fs", remaining)
+			if formatted ~= lastFormatted then
+				lastFormatted = formatted
+				timeLabel.Text = formatted
+			end
 			if remaining <= 0 then
 				if connection then 
 					connection:Disconnect() 
@@ -769,10 +774,17 @@ function Library.CreateWindow(config)
 		return box, setEnabled, function() return mobileBtn end
 	end
 
+	local initShadows = true
+	if customTheme.DropShadows ~= nil then
+		initShadows = (customTheme.DropShadows == true)
+	elseif config.DropShadows ~= nil then
+		initShadows = (config.DropShadows == true)
+	end
+
 	local SIDEBAR_STATE = {
 		Position = customTheme.SidebarPosition or "Left",
 		Detached = customTheme.DetachedSidebar or false,
-		ShadowsEnabled = (customTheme.DropShadows ~= nil) and customTheme.DropShadows or true
+		ShadowsEnabled = initShadows
 	}
 
 	local editModeGui = Instance.new("ScreenGui")
@@ -839,6 +851,7 @@ function Library.CreateWindow(config)
 	shadowFolder.Name = "Shadows"
 	shadowFolder.Size = UDim2.new(1, 0, 1, 0)
 	shadowFolder.BackgroundTransparency = 1
+	shadowFolder.Visible = SIDEBAR_STATE.ShadowsEnabled
 	shadowFolder.ZIndex = 0
 	shadowFolder.Parent = contentWrapper
 
@@ -876,6 +889,7 @@ function Library.CreateWindow(config)
 		shadowStroke:SetAttribute("TargetTransparency", trans)
 		shadowStroke.Thickness = i * 2.5
 		shadowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		shadowStroke.Enabled = SIDEBAR_STATE.ShadowsEnabled
 		shadowStroke.Parent = shadow
 
 		local sidebarShadow = Instance.new("Frame")
@@ -900,6 +914,7 @@ function Library.CreateWindow(config)
 		sidebarShadowStroke:SetAttribute("TargetTransparency", trans)
 		sidebarShadowStroke.Thickness = i * 2.5
 		sidebarShadowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		sidebarShadowStroke.Enabled = (SIDEBAR_STATE.ShadowsEnabled and SIDEBAR_STATE.Detached)
 		sidebarShadowStroke.Parent = sidebarShadow
 	end
 
@@ -985,9 +1000,11 @@ function Library.CreateWindow(config)
 
 	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 		if wrapper.Parent then
-			if math.abs(wrapper.Position.X.Offset - targetPos.X.Offset) > 0.1 or math.abs(wrapper.Position.Y.Offset - targetPos.Y.Offset) > 0.1 then
+			local diffX = math.abs(wrapper.Position.X.Offset - targetPos.X.Offset)
+			local diffY = math.abs(wrapper.Position.Y.Offset - targetPos.Y.Offset)
+			if diffX > 0.1 or diffY > 0.1 then
 				wrapper.Position = wrapper.Position:Lerp(targetPos, 1 - math.exp(-28 * dt))
-			else
+			elseif wrapper.Position ~= targetPos then
 				wrapper.Position = targetPos
 			end
 		end
@@ -1140,7 +1157,7 @@ function Library.CreateWindow(config)
 	local currentSidebarWidth = customTheme.SidebarWidth or (isInitiallyCollapsed and MIN_SIDEBAR_WIDTH or MAX_SIDEBAR_WIDTH)
 	local savedSidebarWidth = currentSidebarWidth
 
-	local sidebarVisuals = Instance.new("CanvasGroup")
+	local sidebarVisuals = Instance.new("Frame")
 	sidebarVisuals.Name = "SidebarVisuals"
 	sidebarVisuals.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebarVisuals.BorderSizePixel = 0
@@ -1186,7 +1203,7 @@ function Library.CreateWindow(config)
 	ApplyTheme(sidebarFiller, "Sidebar", "BackgroundColor3")
 	ApplyTheme(sidebarFiller, "BackgroundTrans", "BackgroundTransparency")
 
-	local sidebar = Instance.new("CanvasGroup")
+	local sidebar = Instance.new("Frame")
 	sidebar.Name = "Sidebar"
 	sidebar.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebar.BorderSizePixel = 0
@@ -2190,13 +2207,23 @@ function Library.CreateWindow(config)
 				end
 			end
 			
-			for _, shadow in ipairs(shadowFolder:GetChildren()) do
-				local stroke = shadow:FindFirstChild("ShadowStroke")
-				if stroke then TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() end
-			end
-			for _, shadow in ipairs(sidebarShadowFolder:GetChildren()) do
-				local stroke = shadow:FindFirstChild("ShadowStroke")
-				if stroke then TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() end
+			if SIDEBAR_STATE.ShadowsEnabled then
+				for _, shadow in ipairs(shadowFolder:GetChildren()) do
+					local stroke = shadow:FindFirstChild("ShadowStroke")
+					if stroke then 
+						stroke.Enabled = true
+						TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() 
+					end
+				end
+				if SIDEBAR_STATE.Detached then
+					for _, shadow in ipairs(sidebarShadowFolder:GetChildren()) do
+						local stroke = shadow:FindFirstChild("ShadowStroke")
+						if stroke then 
+							stroke.Enabled = true
+							TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() 
+						end
+					end
+				end
 			end
 			TS:Create(arcOuterStroke, animInfo, {Transparency = 0}):Play()
 			TS:Create(topCap, animInfo, {BackgroundTransparency = 0}):Play()
@@ -6080,6 +6107,7 @@ function Library.CreateWindow(config)
 	wmShadowFolder.Size = UDim2.new(0, 0, 1, 0)
 	wmShadowFolder.Position = UDim2.new(0, 0, 0, 0)
 	wmShadowFolder.BackgroundTransparency = 1
+	wmShadowFolder.Visible = SIDEBAR_STATE.ShadowsEnabled
 	wmShadowFolder.ZIndex = 0
 	wmShadowFolder.Parent = watermarkHolder
 
@@ -6107,6 +6135,7 @@ function Library.CreateWindow(config)
 		wmShadowStroke:SetAttribute("TargetTransparency", trans)
 		wmShadowStroke.Thickness = i * 2
 		wmShadowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		wmShadowStroke.Enabled = SIDEBAR_STATE.ShadowsEnabled
 		wmShadowStroke.Parent = wmShadow
 		table.insert(wmShadowStrokes, wmShadowStroke)
 	end
@@ -6255,9 +6284,11 @@ function Library.CreateWindow(config)
 
 	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 		if watermarkHolder.Parent then
-			if math.abs(watermarkHolder.Position.X.Offset - wmTargetPos.X.Offset) > 0.1 or math.abs(watermarkHolder.Position.Y.Offset - wmTargetPos.Y.Offset) > 0.1 then
+			local diffX = math.abs(watermarkHolder.Position.X.Offset - wmTargetPos.X.Offset)
+			local diffY = math.abs(watermarkHolder.Position.Y.Offset - wmTargetPos.Y.Offset)
+			if diffX > 0.1 or diffY > 0.1 then
 				watermarkHolder.Position = watermarkHolder.Position:Lerp(wmTargetPos, 1 - math.exp(-28 * dt))
-			else
+			elseif watermarkHolder.Position ~= wmTargetPos then
 				watermarkHolder.Position = wmTargetPos
 			end
 		end
@@ -6488,9 +6519,11 @@ function Library.CreateWindow(config)
 
 		table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
 			if kbHolder.Parent then
-				if math.abs(kbHolder.Position.X.Offset - kbTargetPos.X.Offset) > 0.1 or math.abs(kbHolder.Position.Y.Offset - kbTargetPos.Y.Offset) > 0.1 then
+				local diffX = math.abs(kbHolder.Position.X.Offset - kbTargetPos.X.Offset)
+				local diffY = math.abs(kbHolder.Position.Y.Offset - kbTargetPos.Y.Offset)
+				if diffX > 0.1 or diffY > 0.1 then
 					kbHolder.Position = kbHolder.Position:Lerp(kbTargetPos, 1 - math.exp(-26 * dt))
-				else
+				elseif kbHolder.Position ~= kbTargetPos then
 					kbHolder.Position = kbTargetPos
 				end
 			end
@@ -7134,12 +7167,21 @@ function Library.CreateWindow(config)
 	end})
 	layoutBlock:CreateToggle({
 		Name = "Drop Shadows",
-		Default = true,
+		Default = SIDEBAR_STATE.ShadowsEnabled,
 		Callback = function(s)
 			SIDEBAR_STATE.ShadowsEnabled = s
 			shadowFolder.Visible = s 
 			sidebarShadowFolder.Visible = (s and SIDEBAR_STATE.Detached)
-			wmShadowFolder.Visible = s
+			if wmShadowFolder then wmShadowFolder.Visible = s end
+			
+			for _, shadow in ipairs(shadowFolder:GetChildren()) do
+				local stroke = shadow:FindFirstChild("ShadowStroke")
+				if stroke then stroke.Enabled = s end
+			end
+			for _, shadow in ipairs(sidebarShadowFolder:GetChildren()) do
+				local stroke = shadow:FindFirstChild("ShadowStroke")
+				if stroke then stroke.Enabled = (s and SIDEBAR_STATE.Detached) end
+			end
 	end})
 	layoutBlock:CreateSlider({
 		Name = "Main Corner Radius",
