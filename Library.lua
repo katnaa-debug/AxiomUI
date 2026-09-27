@@ -968,12 +968,36 @@ function Library.CreateWindow(arg1, arg2)
 
 	local dragging, dragInput, dragStart, startPos
 	local targetPos = wrapper.Position
+	local dragConn = nil
+
+	local function startDragLoop()
+		if dragConn then return end
+		dragConn = RS.RenderStepped:Connect(function(dt)
+			if not wrapper.Parent then
+				if dragConn then dragConn:Disconnect(); dragConn = nil end
+				return
+			end
+			local diffX = math.abs(wrapper.Position.X.Offset - targetPos.X.Offset)
+			local diffY = math.abs(wrapper.Position.Y.Offset - targetPos.Y.Offset)
+			if diffX > 0.1 or diffY > 0.1 then
+				wrapper.Position = wrapper.Position:Lerp(targetPos, 1 - math.exp(-28 * dt))
+			else
+				wrapper.Position = targetPos
+				if not dragging then
+					dragConn:Disconnect()
+					dragConn = nil
+				end
+			end
+		end)
+		table.insert(Window._connections, dragConn)
+	end
 
 	table.insert(Window._connections, dragArea.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			dragStart = input.Position
 			startPos = targetPos
+			startDragLoop()
 			local inputEndConn
 			inputEndConn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
@@ -995,18 +1019,7 @@ function Library.CreateWindow(arg1, arg2)
 		if input == dragInput and dragging then
 			local delta = input.Position - dragStart
 			targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-	end))
-
-	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
-		if wrapper.Parent then
-			local diffX = math.abs(wrapper.Position.X.Offset - targetPos.X.Offset)
-			local diffY = math.abs(wrapper.Position.Y.Offset - targetPos.Y.Offset)
-			if diffX > 0.1 or diffY > 0.1 then
-				wrapper.Position = wrapper.Position:Lerp(targetPos, 1 - math.exp(-28 * dt))
-			elseif wrapper.Position ~= targetPos then
-				wrapper.Position = targetPos
-			end
+			startDragLoop()
 		end
 	end))
 
@@ -1581,12 +1594,12 @@ function Library.CreateWindow(arg1, arg2)
 	pagesFolder.ZIndex = 5
 	pagesFolder.Parent = main
 
-	local searchPage = Instance.new("CanvasGroup")
+	local searchPage = Instance.new("Frame")
 	searchPage.Name = "SearchPage"
 	searchPage.Size = UDim2.new(1, 0, 1, 0)
 	searchPage.Position = UDim2.new(0, 0, 0, 0)
 	searchPage.BackgroundTransparency = 1
-	searchPage.GroupTransparency = 1
+	searchPage.ClipsDescendants = true
 	searchPage.Visible = false
 	searchPage.Parent = pagesFolder
 
@@ -1781,15 +1794,12 @@ function Library.CreateWindow(arg1, arg2)
 			for _, b in ipairs(searchRightCol:GetChildren()) do if b:IsA("Frame") then b:Destroy() end end
 			
 			searchPage.Visible = false
-			searchPage.GroupTransparency = 1
 			if Window.CurrentTab and Window.CurrentTab.Page then
 				Window.CurrentTab.Page.Visible = true
-				TS:Create(Window.CurrentTab.Page, TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {GroupTransparency = 0}):Play()
 			end
 		else
 			if Window.CurrentTab and Window.CurrentTab.Page then
 				Window.CurrentTab.Page.Visible = false
-				Window.CurrentTab.Page.GroupTransparency = 1
 			end
 			
 			for _, entry in ipairs(Window._searchRegistry) do
@@ -1824,7 +1834,6 @@ function Library.CreateWindow(arg1, arg2)
 			end
 
 			searchPage.Visible = true
-			TS:Create(searchPage, TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {GroupTransparency = 0}):Play()
 		end
 	end))
 
@@ -4498,6 +4507,7 @@ function Library.CreateWindow(arg1, arg2)
 				end
 				
 				fireCallback()
+				if Window.UpdateKeybinds then Window.UpdateKeybinds() end
 			end
 			
 			if isMobile and hasKeybind then
@@ -4537,6 +4547,7 @@ function Library.CreateWindow(arg1, arg2)
 							ApplyTheme(kbBtn, "TextMuted", "TextColor3")
 							isBinding = false
 							fireCallback()
+							if Window.UpdateKeybinds then Window.UpdateKeybinds() end
 						end
 					else
 						if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
@@ -5262,6 +5273,7 @@ function Library.CreateWindow(arg1, arg2)
 						if cfg.Callback then 
 							pcall(function() cfg.Callback(bind) end)
 						end
+						if Window.UpdateKeybinds then Window.UpdateKeybinds() end
 					end
 				else
 					if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
@@ -5521,11 +5533,8 @@ function Library.CreateWindow(arg1, arg2)
 					TS:Create(prevTab.Padding, TweenInfo.new(0.3), {PaddingLeft = UDim.new(0, 0)}):Play()
 				end
 	
-				local outTween = TS:Create(prevTab.Page, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, -20, 0, 0), GroupTransparency = 1})
-				outTween:Play()
-				table.insert(Window._connections, outTween.Completed:Connect(function() 
-					if Window.CurrentTab ~= prevTab then prevTab.Page.Visible = false end 
-				end))
+				prevTab.Page.Visible = false
+				prevTab.Page.GroupTransparency = 1
 			end
 	
 			TS:Create(tabStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
@@ -5540,10 +5549,13 @@ function Library.CreateWindow(arg1, arg2)
 				TS:Create(tabBtnPadding, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {PaddingLeft = UDim.new(0, 0)}):Play() 
 			end
 	
-			page.Position = UDim2.new(0, -20, 0, 0)
+			page.Position = UDim2.new(0, 0, 0, 8)
 			page.GroupTransparency = 1
 			page.Visible = true
-			TS:Create(page, TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0), GroupTransparency = 0}):Play()
+			TS:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+				Position = UDim2.new(0, 0, 0, 0),
+				GroupTransparency = 0
+			}):Play()
 		end
 		
 		table.insert(Window._connections, tabButton.MouseButton1Click:Connect(activateTab))
@@ -6252,12 +6264,36 @@ function Library.CreateWindow(arg1, arg2)
 
 	local wmDragging, wmDragInput, wmDragStart, wmStartPos
 	local wmTargetPos = watermarkHolder.Position
+	local wmDragConn = nil
+
+	local function startWMLoop()
+		if wmDragConn then return end
+		wmDragConn = RS.RenderStepped:Connect(function(dt)
+			if not watermarkHolder.Parent then
+				if wmDragConn then wmDragConn:Disconnect(); wmDragConn = nil end
+				return
+			end
+			local diffX = math.abs(watermarkHolder.Position.X.Offset - wmTargetPos.X.Offset)
+			local diffY = math.abs(watermarkHolder.Position.Y.Offset - wmTargetPos.Y.Offset)
+			if diffX > 0.1 or diffY > 0.1 then
+				watermarkHolder.Position = watermarkHolder.Position:Lerp(wmTargetPos, 1 - math.exp(-28 * dt))
+			else
+				watermarkHolder.Position = wmTargetPos
+				if not wmDragging then
+					wmDragConn:Disconnect()
+					wmDragConn = nil
+				end
+			end
+		end)
+		table.insert(Window._connections, wmDragConn)
+	end
 
 	table.insert(Window._connections, watermarkHolder.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			wmDragging = true
 			wmDragStart = input.Position
 			wmStartPos = wmTargetPos
+			startWMLoop()
 			local endConn
 			endConn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
@@ -6279,18 +6315,7 @@ function Library.CreateWindow(arg1, arg2)
 		if input == wmDragInput and wmDragging then
 			local delta = input.Position - wmDragStart
 			wmTargetPos = UDim2.new(wmStartPos.X.Scale, wmStartPos.X.Offset + delta.X, wmStartPos.Y.Scale, wmStartPos.Y.Offset + delta.Y)
-		end
-	end))
-
-	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
-		if watermarkHolder.Parent then
-			local diffX = math.abs(watermarkHolder.Position.X.Offset - wmTargetPos.X.Offset)
-			local diffY = math.abs(watermarkHolder.Position.Y.Offset - wmTargetPos.Y.Offset)
-			if diffX > 0.1 or diffY > 0.1 then
-				watermarkHolder.Position = watermarkHolder.Position:Lerp(wmTargetPos, 1 - math.exp(-28 * dt))
-			elseif watermarkHolder.Position ~= wmTargetPos then
-				watermarkHolder.Position = wmTargetPos
-			end
+			startWMLoop()
 		end
 	end))
 
@@ -6514,24 +6539,36 @@ function Library.CreateWindow(arg1, arg2)
 			end
 		end
 
-		UpdateKBDocking()
-		kbHolder.Position = kbTargetPos
-
-		table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
-			if kbHolder.Parent then
+		local kbStepConn = nil
+		local function startKBLoop()
+			if kbStepConn then return end
+			kbStepConn = RS.RenderStepped:Connect(function(dt)
+				if not kbHolder.Parent then
+					if kbStepConn then kbStepConn:Disconnect(); kbStepConn = nil end
+					return
+				end
 				local diffX = math.abs(kbHolder.Position.X.Offset - kbTargetPos.X.Offset)
 				local diffY = math.abs(kbHolder.Position.Y.Offset - kbTargetPos.Y.Offset)
 				if diffX > 0.1 or diffY > 0.1 then
 					kbHolder.Position = kbHolder.Position:Lerp(kbTargetPos, 1 - math.exp(-26 * dt))
-				elseif kbHolder.Position ~= kbTargetPos then
+				else
 					kbHolder.Position = kbTargetPos
+					if not kbDragging then
+						kbStepConn:Disconnect()
+						kbStepConn = nil
+					end
 				end
-			end
-		end))
+			end)
+			table.insert(Window._connections, kbStepConn)
+		end
+
+		UpdateKBDocking()
+		kbHolder.Position = kbTargetPos
 
 		table.insert(Window._connections, kbEdgeBtn.MouseButton1Click:Connect(function()
 			kbIsOpen = not kbIsOpen
 			UpdateKBDocking()
+      startKBLoop()
 		end))
 
 		local kbDragging = false
@@ -6545,6 +6582,7 @@ function Library.CreateWindow(arg1, arg2)
 				kbStartMouseY = input.Position.Y
 				kbStartPosX = kbHolder.Position.X.Offset
 				kbStartPosY = kbHolder.Position.Y.Offset
+				startKBLoop()
 
 				local endConn
 				endConn = input.Changed:Connect(function()
@@ -6563,6 +6601,7 @@ function Library.CreateWindow(arg1, arg2)
 
 						kbOffsetY = math.clamp(kbTargetPos.Y.Offset, -screenH / 2 + 60, screenH / 2 - 60)
 						UpdateKBDocking()
+						startKBLoop()
 					end
 				end)
 				table.insert(Window._connections, endConn)
@@ -6576,6 +6615,7 @@ function Library.CreateWindow(arg1, arg2)
 				local deltaX = input.Position.X - kbStartMouseX
 				local deltaY = input.Position.Y - kbStartMouseY
 				kbTargetPos = UDim2.new(kbHolder.Position.X.Scale, kbStartPosX + deltaX, 0.5, kbStartPosY + deltaY)
+				startKBLoop()
 			end
 		end))
 
@@ -6680,13 +6720,14 @@ function Library.CreateWindow(arg1, arg2)
 		local function RequestKBUpdate()
 			if isUpdatingKB then return end
 			isUpdatingKB = true
-			task.delay(0.05, function()
+			task.delay(0.1, function()
 				isUpdatingKB = false
 				UpdateKeybindList()
 			end)
 		end
 
-		table.insert(Window._connections, UIS.InputEnded:Connect(RequestKBUpdate))
+		Window.UpdateKeybinds = RequestKBUpdate
+
 		task.spawn(function()
 			task.wait(1.5)
 			UpdateKeybindList()
