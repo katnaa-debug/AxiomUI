@@ -178,6 +178,7 @@ local ESP = Block:CreateToggle({
     Name = "ESP",
     Default = true,
     Color = Color3.fromRGB(110, 100, 255),
+    Color2 = Color3.fromRGB(0, 255, 0),
     Callback = function(state, color)
         print("ESP:", state, color)
     end
@@ -194,6 +195,7 @@ local Chams = Block:CreateToggle({
     Default = false,
     Keybind = Enum.KeyCode.C,
     Color = Color3.fromRGB(255, 100, 100),
+    Color2 = Color3.fromRGB(0, 255, 0),
     Callback = function(state, color, bind)
         print("Chams:", state, color, bind)
     end
