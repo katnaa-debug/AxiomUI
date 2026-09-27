@@ -1170,12 +1170,13 @@ function Library.CreateWindow(arg1, arg2)
 	local currentSidebarWidth = customTheme.SidebarWidth or (isInitiallyCollapsed and MIN_SIDEBAR_WIDTH or MAX_SIDEBAR_WIDTH)
 	local savedSidebarWidth = currentSidebarWidth
 
-	local sidebarVisuals = Instance.new("Frame")
+	local sidebarVisuals = Instance.new("CanvasGroup")
 	sidebarVisuals.Name = "SidebarVisuals"
 	sidebarVisuals.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebarVisuals.BorderSizePixel = 0
 	sidebarVisuals.ZIndex = 3 
 	sidebarVisuals.BackgroundTransparency = 1 
+	sidebarVisuals.GroupTransparency = 0
 	sidebarVisuals.Parent = main
 	
 	local svCorner = Instance.new("UICorner")
@@ -1216,11 +1217,12 @@ function Library.CreateWindow(arg1, arg2)
 	ApplyTheme(sidebarFiller, "Sidebar", "BackgroundColor3")
 	ApplyTheme(sidebarFiller, "BackgroundTrans", "BackgroundTransparency")
 
-	local sidebar = Instance.new("Frame")
+	local sidebar = Instance.new("CanvasGroup")
 	sidebar.Name = "Sidebar"
 	sidebar.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebar.BorderSizePixel = 0
 	sidebar.BackgroundTransparency = 1
+	sidebar.GroupTransparency = 0
 	sidebar.ZIndex = 5
 	sidebar.Parent = main
 	
@@ -7560,4 +7562,4 @@ function Library.CreateWindow(arg1, arg2)
 
 	return Window
 end
-return Library
+return Libraryц
