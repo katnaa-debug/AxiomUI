@@ -4157,6 +4157,7 @@ function Library.CreateWindow(config)
 			local callback = cfg.Callback or function() end
 
 			local hasColorpicker = cfg.Colorpicker or (cfg.Color ~= nil)
+			local hasColorpicker2 = cfg.Colorpicker2 or (cfg.Color2 ~= nil)
 			local hasKeybind = (cfg.Keybind ~= nil)
 			
 			local bind = nil
@@ -4167,7 +4168,8 @@ function Library.CreateWindow(config)
 			end
 			
 			local defaultColor = cfg.Color or Color3.fromRGB(255, 255, 255)
-			local isCombo = hasColorpicker or hasKeybind
+			local defaultColor2 = cfg.Color2 or Color3.fromRGB(255, 255, 255)
+			local isCombo = hasColorpicker or hasColorpicker2 or hasKeybind
 
 			local container = CreateElementBase(38)
 			if isCombo then
@@ -4230,7 +4232,6 @@ function Library.CreateWindow(config)
 
 			local mobileToggle, getMobileBtn
 
-
 			local btn
 			if not isCombo then
 				btn = Instance.new("TextButton")
@@ -4242,7 +4243,31 @@ function Library.CreateWindow(config)
 				btn.Parent = container
 			end
 			
-			local previewBox, kbBox, kbBtn, currentColor, updateColors
+			local previewBox, previewBox2, kbBox, kbBtn
+			local currentColor = defaultColor
+			local currentColor2 = defaultColor2
+			local updateColors, updateColors2
+
+			local function fireCallback()
+				if not callback then return end
+				if hasColorpicker and hasColorpicker2 and hasKeybind then
+					callback(state, currentColor, currentColor2, bind)
+				elseif hasColorpicker and hasColorpicker2 then
+					callback(state, currentColor, currentColor2)
+				elseif hasColorpicker and hasKeybind then
+					callback(state, currentColor, bind)
+				elseif hasColorpicker2 and hasKeybind then
+					callback(state, currentColor2, bind)
+				elseif hasColorpicker then
+					callback(state, currentColor)
+				elseif hasColorpicker2 then
+					callback(state, currentColor2)
+				elseif hasKeybind then
+					callback(state, bind)
+				else
+					callback(state)
+				end
+			end
 			
 			if hasColorpicker then
 				previewBox = Instance.new("TextButton")
@@ -4263,20 +4288,35 @@ function Library.CreateWindow(config)
 				previewStroke.Parent = previewBox
 				ApplyTheme(previewStroke, "Outlines", "Color")
 				
-				currentColor = defaultColor
-				
-				local function updateColorCallback(col)
+				updateColors = AttachColorPicker(previewBox, defaultColor, function(col)
 					currentColor = col
-					if callback then
-						if hasColorpicker and hasKeybind then
-							callback(state, currentColor, bind)
-						elseif hasColorpicker then
-							callback(state, currentColor)
-						end
-					end
-				end
+					fireCallback()
+				end)
+			end
+
+			if hasColorpicker2 then
+				previewBox2 = Instance.new("TextButton")
+				previewBox2.Name = "PreviewBox2"
+				previewBox2.BackgroundColor3 = defaultColor2
+				previewBox2.BorderSizePixel = 0
+				previewBox2.Text = ""
+				previewBox2.Parent = container
 				
-				updateColors = AttachColorPicker(previewBox, defaultColor, updateColorCallback)
+				local previewCorner2 = Instance.new("UICorner")
+				previewCorner2.CornerRadius = GLOBAL_CORNER
+				previewCorner2.Parent = previewBox2
+				CS:AddTag(previewCorner2, "ElementCorner")
+				
+				local previewStroke2 = Instance.new("UIStroke")
+				previewStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+				previewStroke2.Thickness = 2
+				previewStroke2.Parent = previewBox2
+				ApplyTheme(previewStroke2, "Outlines", "Color")
+				
+				updateColors2 = AttachColorPicker(previewBox2, defaultColor2, function(col)
+					currentColor2 = col
+					fireCallback()
+				end)
 			end
 			
 			if hasKeybind then
@@ -4343,6 +4383,7 @@ function Library.CreateWindow(config)
 					toggleBox.Size = UDim2.new(0, boxSize, 0, boxSize)
 					
 					if previewBox then previewBox.Size = UDim2.new(0, boxSize, 0, boxSize) end
+					if previewBox2 then previewBox2.Size = UDim2.new(0, boxSize, 0, boxSize) end
 					if kbBox then kbBox.Size = UDim2.new(0, 30, 0, kbH); kbBtn.TextSize = isCompact and 11 or 12 end
 					
 					local gap = 6
@@ -4359,6 +4400,12 @@ function Library.CreateWindow(config)
 							kbBox.AnchorPoint = Vector2.new(1, 0.5)
 							kbBox.Position = UDim2.new(1, -rightOffset, 0.5, 0)
 							rightOffset = rightOffset + 30 + gap
+						end
+
+						if previewBox2 then
+							previewBox2.AnchorPoint = Vector2.new(1, 0.5)
+							previewBox2.Position = UDim2.new(1, -rightOffset, 0.5, 0)
+							rightOffset = rightOffset + boxSize + gap
 						end
 						
 						if previewBox then
@@ -4386,6 +4433,12 @@ function Library.CreateWindow(config)
 						if previewBox then
 							previewBox.AnchorPoint = Vector2.new(1, 0.5)
 							previewBox.Position = UDim2.new(1, -offset, 0.5, 0)
+							offset = offset + boxSize + gap
+						end
+
+						if previewBox2 then
+							previewBox2.AnchorPoint = Vector2.new(1, 0.5)
+							previewBox2.Position = UDim2.new(1, -offset, 0.5, 0)
 							offset = offset + boxSize + gap
 						end
 						
@@ -4417,17 +4470,7 @@ function Library.CreateWindow(config)
 					TS:Create(fill, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0)}):Play()
 				end
 				
-				if callback then
-					if hasColorpicker and hasKeybind then
-						callback(state, currentColor, bind)
-					elseif hasColorpicker then
-						callback(state, currentColor)
-					elseif hasKeybind then
-						callback(state, bind)
-					else
-						callback(state)
-					end
-				end
+				fireCallback()
 			end
 			
 			if isMobile and hasKeybind then
@@ -4466,14 +4509,7 @@ function Library.CreateWindow(config)
 							kbBtn.Text = getShortKey(bind)
 							ApplyTheme(kbBtn, "TextMuted", "TextColor3")
 							isBinding = false
-							
-							if callback then
-								if hasColorpicker and hasKeybind then
-									callback(state, currentColor, bind)
-								elseif hasKeybind then
-									callback(state, bind)
-								end
-							end
+							fireCallback()
 						end
 					else
 						if bind and bind ~= Enum.KeyCode.Unknown and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == bind then
@@ -4499,6 +4535,13 @@ function Library.CreateWindow(config)
 					updateColors:SetColor(newColor)
 				end
 			end
+			function api:SetColor2(newColor)
+				if not hasColorpicker2 then return end
+				currentColor2 = newColor
+				if updateColors2 then 
+					updateColors2:SetColor(newColor)
+				end
+			end
 			function api:SetKeybind(newKey)
 				if not hasKeybind then return end
 				bind = newKey
@@ -4510,28 +4553,20 @@ function Library.CreateWindow(config)
 				return {
 					State = state,
 					Color = hasColorpicker and {currentColor.R, currentColor.G, currentColor.B} or nil,
+					Color2 = hasColorpicker2 and {currentColor2.R, currentColor2.G, currentColor2.B} or nil,
 					Bind = hasKeybind and (bind and bind.Name) or nil
 				}
 			end
 			function api:Load(val)
 				if val.State ~= nil then api:Set(val.State) end
 				if hasColorpicker and val.Color then api:SetColor(Color3.new(unpack(val.Color))) end
+				if hasColorpicker2 and val.Color2 then api:SetColor2(Color3.new(unpack(val.Color2))) end
 				if hasKeybind and val.Bind then api:SetKeybind(Enum.KeyCode[val.Bind]) end
 			end
 			RegisterElementAPI("Toggle", tglName, api)
 
 			if state then
-				if callback then
-					if hasColorpicker and hasKeybind then
-						task.spawn(callback, state, currentColor, bind)
-					elseif hasColorpicker then
-						task.spawn(callback, state, currentColor)
-					elseif hasKeybind then
-						task.spawn(callback, state, bind)
-					else
-						task.spawn(callback, state)
-					end
-				end
+				task.spawn(fireCallback)
 			end
 
 			return api
