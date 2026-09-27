@@ -137,6 +137,8 @@ local ESP = MainBlock:CreateToggle({
 
     Color = Color3.fromRGB(110, 100, 255),
 
+    Color2 = Color3.fromRGB(0, 255, 0),
+    
     Callback = function(state, color)
         print("ESP:", state, color)
     end
