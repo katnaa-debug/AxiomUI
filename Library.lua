@@ -3232,6 +3232,8 @@ function Library.CreateWindow(arg1, arg2)
 				Window.ClosePopup()
 			end))
 
+			local dropTrackConn = nil
+
 			table.insert(Window._connections, topBar.MouseButton1Click:Connect(function()
 				if Window.ActivePopup == dropPopup then 
 					Window.ClosePopup()
@@ -3275,7 +3277,31 @@ function Library.CreateWindow(arg1, arg2)
 				Window.Overlay.Visible = true
 				Window.ActivePopup = dropPopup
 
-				Window.ActivePopupClose = function()					
+				if dropTrackConn then dropTrackConn:Disconnect() end
+				dropTrackConn = RS.RenderStepped:Connect(function()
+					if not dropPopup.Visible or not selectedBox.Parent then
+						if dropTrackConn then dropTrackConn:Disconnect(); dropTrackConn = nil end
+						return
+					end
+					local curX = selectedBox.AbsolutePosition.X - Window.Overlay.AbsolutePosition.X
+					local curY = selectedBox.AbsolutePosition.Y - Window.Overlay.AbsolutePosition.Y
+					dropPopup.Position = UDim2.new(0, curX, 0, curY)
+
+					if pagesFolder and pagesFolder.Parent then
+						local pTop = pagesFolder.AbsolutePosition.Y - 15
+						local pBottom = pagesFolder.AbsolutePosition.Y + pagesFolder.AbsoluteSize.Y + 15
+						if selectedBox.AbsolutePosition.Y < pTop or selectedBox.AbsolutePosition.Y > pBottom then
+							Window.ClosePopup()
+						end
+					end
+				end)
+
+				Window.ActivePopupClose = function()
+					if dropTrackConn then
+						dropTrackConn:Disconnect()
+						dropTrackConn = nil
+					end
+					
 					local closeTween = TS:Create(dropPopup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 						Size = UDim2.new(0, boxW, 0, boxH)
 					})
