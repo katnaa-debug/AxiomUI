@@ -101,17 +101,17 @@ end
 
 
 local function parseAsset(input)
-	if type(input) == "number" then return "rbxassetid://" .. tostring(input) end
 	if not input or input == "" then return "" end
 	local str = tostring(input):match("^%s*(.-)%s*$")
+	if str == "" then return "" end
 	
-	if str:match("^rbxassetid://") or str:match("^rbxasset://") or str:match("^http") or str:match("^rbxthumb://") then 
+	if str:match("^rbxthumb://") or str:match("^rbxasset://textures") then 
 		return str 
 	end
 	
-	local id = str:match("%d+")
+	local id = str:match("(%d+)")
 	if id then 
-		return "rbxassetid://" .. id 
+		return "rbxthumb://type=Asset&id=" .. id .. "&w=420&h=420"
 	end
 	
 	return str
