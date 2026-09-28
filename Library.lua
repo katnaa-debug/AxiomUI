@@ -7562,4 +7562,4 @@ function Library.CreateWindow(arg1, arg2)
 
 	return Window
 end
-return Libraryц
+return Library
