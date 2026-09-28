@@ -3289,13 +3289,14 @@ function Library.CreateWindow(arg1, arg2)
 					local curY = selectedBox.AbsolutePosition.Y - Window.Overlay.AbsolutePosition.Y
 					dropPopup.Position = UDim2.new(0, curX, 0, curY)
 
-					if pagesFolder and pagesFolder.Parent then
-						local pTop = pagesFolder.AbsolutePosition.Y - 15
-						local pBottom = pagesFolder.AbsolutePosition.Y + pagesFolder.AbsoluteSize.Y + 15
-						if selectedBox.AbsolutePosition.Y < pTop or selectedBox.AbsolutePosition.Y > pBottom then
-							Window.ClosePopup()
-						end
-					end
+					local scrollParent = selectedBox:FindFirstAncestorWhichIsA("ScrollingFrame")
+          if scrollParent then
+	          local sTop = scrollParent.AbsolutePosition.Y - 15
+	          local sBottom = scrollParent.AbsolutePosition.Y + scrollParent.AbsoluteSize.Y + 15
+	          if selectedBox.AbsolutePosition.Y < sTop or selectedBox.AbsolutePosition.Y > sBottom then
+          		Window.ClosePopup()
+          	end
+          end
 				end)
 
 				Window.ActivePopupClose = function()
