@@ -68,17 +68,12 @@ end
 local function safeListFiles(folder)
     local fs = getFS()
     if not fs.listfiles then return {} end
-
-
     local s, files = pcall(fs.listfiles, folder)
     if s and type(files) == "table" and next(files) ~= nil then return files end
-
     local s2, files2 = pcall(fs.listfiles, folder .. "/")
     if s2 and type(files2) == "table" and next(files2) ~= nil then return files2 end
-
     local s3, files3 = pcall(fs.listfiles, "./" .. folder)
     if s3 and type(files3) == "table" and next(files3) ~= nil then return files3 end
-
     local s4, files4 = pcall(fs.listfiles, "")
     if not s4 or type(files4) ~= "table" then
         s4, files4 = pcall(fs.listfiles)
@@ -94,26 +89,21 @@ local function safeListFiles(folder)
         end
         if #matched > 0 then return matched end
     end
-
     if s and type(files) == "table" then return files end
     return {}
 end
-
 
 local function parseAsset(input)
 	if not input or input == "" then return "" end
 	local str = tostring(input):match("^%s*(.-)%s*$")
 	if str == "" then return "" end
-	
 	if str:match("^rbxthumb://") or str:match("^rbxasset://textures") then 
 		return str 
 	end
-	
 	local id = str:match("(%d+)")
 	if id then 
 		return "rbxthumb://type=Asset&id=" .. id .. "&w=420&h=420"
 	end
-	
 	return str
 end
 
@@ -123,6 +113,26 @@ local function getFirstChar(str)
 		return string.upper(utf8.char(code))
 	end
 	return string.upper(string.sub(str, 1, 1))
+end
+
+local function truncateTwoDots(text, font, size, maxW)
+	if not text or text == "" then return "" end
+	if maxW <= 10 then return ".." end
+	local full = TextService:GetTextSize(text, size, font, Vector2.new(10000, 100))
+	if full.X <= maxW then return text end
+	local dotsW = TextService:GetTextSize("..", size, font, Vector2.new(10000, 100)).X
+	local avail = maxW - dotsW
+	if avail <= 0 then return ".." end
+	local len = utf8.len(text) or #text
+	for i = len, 1, -1 do
+		local offset = utf8.offset(text, i + 1)
+		local sub = string.sub(text, 1, offset and (offset - 1) or i)
+		local s = TextService:GetTextSize(sub, size, font, Vector2.new(10000, 100))
+		if s.X <= avail then
+			return sub .. ".."
+		end
+	end
+	return ".."
 end
 
 local Library = {}
@@ -141,16 +151,13 @@ local THEME = {
 	Text = Color3.fromRGB(245, 245, 250),
 	TextMuted = Color3.fromRGB(145, 142, 165),
 	CloseBtn = Color3.fromRGB(255, 87, 87),
-	
 	BackgroundTrans = 0,
 	BgImageTrans = 1,
 	CardTrans = 0,
 	ElementTrans = 0,
 	InputTrans = 0,
-	
 	TextFont = "Gotham",
 	SubtextFont = "Gotham",
-	
 	BackgroundImage = "",
 	TogglePosition = "Right",
 	InternalOutlines = "Off",
@@ -162,10 +169,8 @@ local THEME = {
 
 local function ApplyTheme(obj, themeKey, prop)
 	prop = prop or "BackgroundColor3"
-	
 	obj:SetAttribute("ThemeProp_" .. prop, themeKey)
 	CS:AddTag(obj, "ThemeBind")
-
 	if prop == "Font" then
 		pcall(function() obj[prop] = Enum.Font[THEME[themeKey]] end)
 	elseif prop == "Image" and themeKey == "BackgroundImage" then
@@ -198,7 +203,6 @@ local function UpdateTogglePosition(posMode)
 	local isCompact = (THEME.ElementStyle == 3 or THEME.ElementStyle == 4)
 	local edge = isCompact and 5 or 7
 	local boxSize = isCompact and 18 or 24
-
 	for _, toggleBox in ipairs(CS:GetTagged("ToggleBoxBind")) do
 		if posMode == "Left" then
 			toggleBox.AnchorPoint = Vector2.new(0, 0.5)
@@ -249,17 +253,16 @@ local function UpdateTopbarAlign(align)
 	for _, btn in ipairs(CS:GetTagged("CloseBtnBind")) do
 		btn.LayoutOrder = (align == "Left") and 1 or 3
 	end
-	for _, descPad in ipairs(CS:GetTagged("TopbarDescPaddingBind")) do
-		if align == "Left" then
-			descPad.PaddingLeft = UDim.new(0, 380)
-			descPad.PaddingRight = UDim.new(0, 15)
-		else
-			descPad.PaddingLeft = UDim.new(0, 15)
-			descPad.PaddingRight = UDim.new(0, 380)
-		end
-	end
 	for _, descLabel in ipairs(CS:GetTagged("TopbarDescLabelBind")) do
-		descLabel.TextXAlignment = (align == "Left") and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
+		if align == "Left" then
+			descLabel.Position = UDim2.new(0, 440, 0, 0)
+			descLabel.Size = UDim2.new(1, -455, 1, 0)
+			descLabel.TextXAlignment = Enum.TextXAlignment.Right
+		else
+			descLabel.Position = UDim2.new(0, 15, 0, 0)
+			descLabel.Size = UDim2.new(1, -455, 1, 0)
+			descLabel.TextXAlignment = Enum.TextXAlignment.Left
+		end
 	end
 end
 
@@ -381,6 +384,7 @@ function Library.CreateWindow(arg1, arg2)
 		local nContent = notifConfig.Description or notifConfig.Content or ""
 		local nDuration = notifConfig.Duration or 5
 		local nIcon = parseAsset(notifConfig.Icon)
+		local isCompactNotif = (THEME.ElementStyle == 3 or THEME.ElementStyle == 4)
 
 		notifCount = notifCount + 1
 
@@ -423,15 +427,15 @@ function Library.CreateWindow(arg1, arg2)
 		CS:AddTag(stroke, "NotificationStrokeBind")
 
 		local pad = Instance.new("UIPadding")
-		pad.PaddingTop = UDim.new(0, 15)
-		pad.PaddingBottom = UDim.new(0, 15)
-		pad.PaddingLeft = UDim.new(0, 15)
-		pad.PaddingRight = UDim.new(0, 15)
+		pad.PaddingTop = UDim.new(0, isCompactNotif and 10 or 15)
+		pad.PaddingBottom = UDim.new(0, isCompactNotif and 10 or 15)
+		pad.PaddingLeft = UDim.new(0, isCompactNotif and 11 or 15)
+		pad.PaddingRight = UDim.new(0, isCompactNotif and 11 or 15)
 		pad.Parent = notif
 
 		local layout = Instance.new("UIListLayout")
 		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.Padding = UDim.new(0, 12)
+		layout.Padding = UDim.new(0, isCompactNotif and 8 or 12)
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Parent = notif
 
@@ -446,16 +450,17 @@ function Library.CreateWindow(arg1, arg2)
 		local topLayout = Instance.new("UIListLayout")
 		topLayout.FillDirection = Enum.FillDirection.Horizontal
 		topLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-		topLayout.Padding = UDim.new(0, 12)
+		topLayout.Padding = UDim.new(0, isCompactNotif and 9 or 12)
 		topLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		topLayout.Parent = topContent
 
 		local hasIcon = (nIcon and nIcon ~= "")
+		local iconSize = isCompactNotif and 28 or 36
 		
 		local iconImg
 		if hasIcon then
 			iconImg = Instance.new("ImageLabel")
-			iconImg.Size = UDim2.new(0, 36, 0, 36)
+			iconImg.Size = UDim2.new(0, iconSize, 0, iconSize)
 			iconImg.BackgroundTransparency = 1
 			iconImg.Image = nIcon
 			iconImg.LayoutOrder = isNotifLeft and 2 or 1
@@ -465,14 +470,14 @@ function Library.CreateWindow(arg1, arg2)
 
 		local txtFrame = Instance.new("Frame")
 		txtFrame.BackgroundTransparency = 1
-		txtFrame.Size = UDim2.new(1, hasIcon and -48 or 0, 0, 0)
+		txtFrame.Size = UDim2.new(1, hasIcon and -(iconSize + (isCompactNotif and 9 or 12)) or 0, 0, 0)
 		txtFrame.AutomaticSize = Enum.AutomaticSize.Y
 		txtFrame.LayoutOrder = isNotifLeft and 1 or 2
 		txtFrame.Parent = topContent
 
 		local txtLayout = Instance.new("UIListLayout")
 		txtLayout.FillDirection = Enum.FillDirection.Vertical
-		txtLayout.Padding = UDim.new(0, 4)
+		txtLayout.Padding = UDim.new(0, 3)
 		txtLayout.Parent = txtFrame
 
 		local titleLbl = Instance.new("TextLabel")
@@ -481,7 +486,7 @@ function Library.CreateWindow(arg1, arg2)
 		titleLbl.AutomaticSize = Enum.AutomaticSize.Y
 		titleLbl.TextWrapped = true
 		titleLbl.TextXAlignment = isNotifLeft and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
-		titleLbl.TextSize = 15
+		titleLbl.TextSize = isCompactNotif and 13 or 15
 		titleLbl.Text = nTitle
 		titleLbl.Font = Enum.Font.GothamMedium
 		titleLbl.Parent = txtFrame
@@ -494,7 +499,7 @@ function Library.CreateWindow(arg1, arg2)
 		descLbl.AutomaticSize = Enum.AutomaticSize.Y
 		descLbl.TextWrapped = true
 		descLbl.TextXAlignment = isNotifLeft and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
-		descLbl.TextSize = 13
+		descLbl.TextSize = isCompactNotif and 11 or 13
 		descLbl.Text = nContent
 		descLbl.Parent = txtFrame
 		ApplyTheme(descLbl, "TextMuted", "TextColor3")
@@ -502,14 +507,15 @@ function Library.CreateWindow(arg1, arg2)
 
 		local bottomContainer = Instance.new("Frame")
 		bottomContainer.Name = "BottomContainer"
-		bottomContainer.Size = UDim2.new(1, 0, 0, 20)
+		bottomContainer.Size = UDim2.new(1, 0, 0, isCompactNotif and 16 or 20)
 		bottomContainer.BackgroundTransparency = 1
 		bottomContainer.LayoutOrder = 2
 		bottomContainer.Parent = notif
 
+		local badgeW = isCompactNotif and 36 or 40
 		local track = Instance.new("Frame")
 		track.Name = "Track"
-		track.Size = UDim2.new(1, -48, 0, 4)
+		track.Size = UDim2.new(1, -(badgeW + 8), 0, isCompactNotif and 3 or 4)
 		track.AnchorPoint = Vector2.new(0, 0.5)
 		track.Position = UDim2.new(0, 0, 0.5, 0)
 		track.BorderSizePixel = 0
@@ -534,7 +540,7 @@ function Library.CreateWindow(arg1, arg2)
 
 		local timeBadge = Instance.new("Frame")
 		timeBadge.Name = "TimeBadge"
-		timeBadge.Size = UDim2.new(0, 40, 1, 0)
+		timeBadge.Size = UDim2.new(0, badgeW, 1, 0)
 		timeBadge.AnchorPoint = Vector2.new(1, 0.5)
 		timeBadge.Position = UDim2.new(1, 0, 0.5, 0)
 		timeBadge.BorderSizePixel = 0
@@ -559,7 +565,7 @@ function Library.CreateWindow(arg1, arg2)
 		timeLabel.Size = UDim2.new(1, 0, 1, 0)
 		timeLabel.Position = UDim2.new(0, 0, 0, -1)
 		timeLabel.BackgroundTransparency = 1
-		timeLabel.TextSize = 11
+		timeLabel.TextSize = isCompactNotif and 10 or 11
 		timeLabel.TextXAlignment = Enum.TextXAlignment.Center
 		timeLabel.Text = string.format("%.1fs", nDuration)
 		timeLabel.Parent = timeBadge
@@ -721,6 +727,7 @@ function Library.CreateWindow(arg1, arg2)
 		box.BackgroundTransparency = 1
 		box.BorderSizePixel = 0
 		box.Text = ""
+		box.ZIndex = 5
 		box.Parent = parent
 
 		local stroke = Instance.new("UIStroke")
@@ -782,8 +789,8 @@ function Library.CreateWindow(arg1, arg2)
 	end
 
 	local SIDEBAR_STATE = {
-		Position = customTheme.SidebarPosition or "Left",
-		Detached = customTheme.DetachedSidebar or false,
+		Position = customTheme.SidebarPosition or config.SidebarPosition or "Left",
+		Detached = (customTheme.DetachedSidebar ~= nil and customTheme.DetachedSidebar) or (config.DetachedSidebar ~= nil and config.DetachedSidebar) or false,
 		ShadowsEnabled = initShadows
 	}
 
@@ -814,14 +821,11 @@ function Library.CreateWindow(arg1, arg2)
 		local targetSize = config.WindowSize or Vector2.new(950, 600)
 		local reqW = typeof(targetSize) == "Vector2" and targetSize.X or targetSize[1] or 950
 		local reqH = typeof(targetSize) == "Vector2" and targetSize.Y or targetSize[2] or 600
-		
 		local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
 		local maxAvailW = (viewport.X / uiScaleValue) - 40 
 		local maxAvailH = (viewport.Y / uiScaleValue) - 40 
-		
 		local minUIW = isMobile and 350 or 500
 		local minUIH = isMobile and 250 or 350
-		
 		finalW = math.clamp(reqW, minUIW, math.max(minUIW, maxAvailW))
 		finalH = math.clamp(reqH, minUIH, math.max(minUIH, maxAvailH))
 	end
@@ -866,7 +870,6 @@ function Library.CreateWindow(arg1, arg2)
 	local shadowLayers = 8
 	for i = 1, shadowLayers do
 		local trans = 0.8 + (i * 0.02)
-
 		local shadow = Instance.new("Frame")
 		shadow.Name = "ShadowLayer" .. i
 		shadow.BackgroundTransparency = 1
@@ -1124,14 +1127,11 @@ function Library.CreateWindow(arg1, arg2)
 		if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local scaleMultiplier = isMobile and 0.65 or 1
 			local delta = (input.Position - resizeStartPos) / scaleMultiplier
-			
 			local sw, sh = screenGui.AbsoluteSize.X, screenGui.AbsoluteSize.Y
-			
 			local minResW = isMobile and 350 or 500
 			local minResH = isMobile and 250 or 350
 			local maxResW = math.max(minResW, (sw / scaleMultiplier) - 40)
 			local maxResH = math.max(minResH, (sh / scaleMultiplier) - 40)
-			
 			wrapper.Size = UDim2.new(0, math.clamp(resizeStartSize.X + (delta.X * 2), minResW, maxResW), 0, math.clamp(resizeStartSize.Y + (delta.Y * 2), minResH, maxResH))
 		end
 	end))
@@ -1149,7 +1149,6 @@ function Library.CreateWindow(arg1, arg2)
 		if Window.ActivePopup then
 			local p = Window.ActivePopup
 			Window.ActivePopup = nil
-			
 			if Window.ActivePopupClose then
 				Window.ActivePopupClose()
 				Window.ActivePopupClose = nil
@@ -1295,7 +1294,7 @@ function Library.CreateWindow(arg1, arg2)
 
 	local tabList = Instance.new("ScrollingFrame")
 	tabList.Name = "TabList"
-	tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -125 or -90) 
+	tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -140 or -90) 
 	tabList.Position = UDim2.new(0, 10, 0, 75)
 	tabList.BackgroundTransparency = 1
 	tabList.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -1356,12 +1355,14 @@ function Library.CreateWindow(arg1, arg2)
 	if description and type(description) == "string" then
 		descLabel = Instance.new("TextLabel")
 		descLabel.Name = "DescLabel"
-		descLabel.Size = UDim2.new(1, -20, 0, 20)
-		descLabel.Position = UDim2.new(0, 10, 1, -30)
+		descLabel.Size = UDim2.new(1, -16, 0, 36)
+		descLabel.Position = UDim2.new(0, 8, 1, -44)
 		descLabel.BackgroundTransparency = 1
 		descLabel.TextSize = 11
-		descLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		descLabel.TextWrapped = true
+		descLabel.ClipsDescendants = true
 		descLabel.TextXAlignment = Enum.TextXAlignment.Center
+		descLabel.TextYAlignment = Enum.TextYAlignment.Bottom
 		descLabel.Text = description
 		descLabel.Parent = sidebar
 		ApplyTheme(descLabel, "TextMuted", "TextColor3")
@@ -1390,26 +1391,30 @@ function Library.CreateWindow(arg1, arg2)
 	if description and type(description) == "string" then
 		topbarDescLabel = Instance.new("TextLabel")
 		topbarDescLabel.Name = "TopbarDescLabel"
-		topbarDescLabel.Size = topbar.Size
-		topbarDescLabel.Position = topbar.Position
+		topbarDescLabel.Size = UDim2.new(1, -455, 1, 0)
+		topbarDescLabel.Position = UDim2.new(0, 15, 0, 0)
 		topbarDescLabel.BackgroundTransparency = 1
-		topbarDescLabel.TextSize = 12
-		topbarDescLabel.TextXAlignment = Enum.TextXAlignment.Left
+		topbarDescLabel.TextSize = 11
+		topbarDescLabel.TextWrapped = true
 		topbarDescLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		topbarDescLabel.ClipsDescendants = true
+		topbarDescLabel.TextYAlignment = Enum.TextYAlignment.Center
+		topbarDescLabel.TextXAlignment = Enum.TextXAlignment.Left
 		topbarDescLabel.Text = description
-		topbarDescLabel.ZIndex = 5
+		topbarDescLabel.ZIndex = 6
 		topbarDescLabel.Visible = false
-		topbarDescLabel.Parent = main
+		topbarDescLabel.Parent = topbar
 		ApplyTheme(topbarDescLabel, "TextMuted", "TextColor3")
 		ApplyTheme(topbarDescLabel, "SubtextFont", "Font")
 		CS:AddTag(topbarDescLabel, "TopbarDescLabelBind")
-
-		local topbarDescPad = Instance.new("UIPadding")
-		topbarDescPad.PaddingLeft = UDim.new(0, 15)
-		topbarDescPad.PaddingRight = UDim.new(0, 380)
-		topbarDescPad.Parent = topbarDescLabel
-		CS:AddTag(topbarDescPad, "TopbarDescPaddingBind")
 	end
+
+	local topbarControls = Instance.new("Frame")
+	topbarControls.Name = "TopbarControls"
+	topbarControls.Size = UDim2.new(1, 0, 1, 0)
+	topbarControls.BackgroundTransparency = 1
+	topbarControls.ZIndex = 5
+	topbarControls.Parent = topbar
 
 	local topbarLayout = Instance.new("UIListLayout")
 	topbarLayout.Name = "TopbarLayout"
@@ -1418,13 +1423,13 @@ function Library.CreateWindow(arg1, arg2)
 	topbarLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	topbarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	topbarLayout.Padding = UDim.new(0, 15)
-	topbarLayout.Parent = topbar
+	topbarLayout.Parent = topbarControls
 	CS:AddTag(topbarLayout, "TopbarLayoutBind")
 
 	local topbarPadding = Instance.new("UIPadding")
 	topbarPadding.Name = "TopbarPadding"
 	topbarPadding.PaddingRight = UDim.new(0, 14)
-	topbarPadding.Parent = topbar
+	topbarPadding.Parent = topbarControls
 	CS:AddTag(topbarPadding, "TopbarPaddingBind")
 
 	local closeBtn = Instance.new("TextButton")
@@ -1434,7 +1439,7 @@ function Library.CreateWindow(arg1, arg2)
 	closeBtn.AutoButtonColor = false
 	closeBtn.LayoutOrder = 3
 	closeBtn.ZIndex = 50
-	closeBtn.Parent = topbar
+	closeBtn.Parent = topbarControls
 	ApplyTheme(closeBtn, "Card", "BackgroundColor3")
 	ApplyTheme(closeBtn, "CardTrans", "BackgroundTransparency")
 	CS:AddTag(closeBtn, "CloseBtnBind")
@@ -1466,7 +1471,7 @@ function Library.CreateWindow(arg1, arg2)
 	profileBlock.AutomaticSize = Enum.AutomaticSize.X 
 	profileBlock.Size = UDim2.new(0, 0, 0, 42)
 	profileBlock.LayoutOrder = 2
-	profileBlock.Parent = topbar
+	profileBlock.Parent = topbarControls
 	ApplyTheme(profileBlock, "Card", "BackgroundColor3")
 	ApplyTheme(profileBlock, "CardTrans", "BackgroundTransparency")
 	CS:AddTag(profileBlock, "ProfileBlockBind")
@@ -1551,7 +1556,7 @@ function Library.CreateWindow(arg1, arg2)
 	searchContainer.Size = UDim2.new(0, 230, 0, 42)
 	searchContainer.ClipsDescendants = true
 	searchContainer.LayoutOrder = 1
-	searchContainer.Parent = topbar
+	searchContainer.Parent = topbarControls
 	ApplyTheme(searchContainer, "Card", "BackgroundColor3")
 	ApplyTheme(searchContainer, "CardTrans", "BackgroundTransparency")
 	CS:AddTag(searchContainer, "SearchContainerBind")
@@ -1711,6 +1716,7 @@ function Library.CreateWindow(arg1, arg2)
 
 		local blockLayout = Instance.new("UIListLayout")
 		blockLayout.Name = "BlockLayout"
+		blockLayout.FillDirection = Enum.FillDirection.Vertical
 		blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		blockLayout.Padding = UDim.new(0, 6)
 		blockLayout.Parent = blockContainer
@@ -1803,7 +1809,6 @@ function Library.CreateWindow(arg1, arg2)
 			if Window.CurrentTab and Window.CurrentTab.Page then
 				Window.CurrentTab.Page.Visible = false
 			end
-			
 			for _, entry in ipairs(Window._searchRegistry) do
 				entry.UI.Parent = entry.OriginalParent
 			end
@@ -1834,7 +1839,6 @@ function Library.CreateWindow(arg1, arg2)
 					end
 				end
 			end
-
 			searchPage.Visible = true
 		end
 	end))
@@ -1865,14 +1869,12 @@ function Library.CreateWindow(arg1, arg2)
 		local isCollapsed = effWidth < 115
 		
 		tabListLayout.Padding = UDim.new(0, (THEME.ElementStyle == 3 or THEME.ElementStyle == 4) and 2 or 4)
-
 		if isTopOrBottom then isCollapsed = true end
 
 		sidebarResizer.Visible = not SIDEBAR_STATE.Detached
 
 		if SIDEBAR_STATE.Detached then
 			sidebarBgImage.Visible = true
-
 			svCorner.CornerRadius = UDim.new(0, cornerRadiusNum)
 			sidebarBaseCorner.CornerRadius = UDim.new(0, cornerRadiusNum)
 			sidebarCorner.CornerRadius = UDim.new(0, cornerRadiusNum)
@@ -1912,7 +1914,6 @@ function Library.CreateWindow(arg1, arg2)
 			sidebarShadowFolder.Position = sidebar.Position
 		else
 			sidebarBgImage.Visible = false
-
 			svCorner.CornerRadius = UDim.new(0, 0)
 			sidebarBaseCorner.CornerRadius = UDim.new(0, 0)
 			sidebarCorner.CornerRadius = UDim.new(0, 0)
@@ -1988,7 +1989,6 @@ function Library.CreateWindow(arg1, arg2)
 				resizerLine.Position = UDim2.new(0.5, 0, 0.5, 0)
 				resizerLine.AnchorPoint = Vector2.new(0.5, 0.5)
 			end
-			
 			sidebarVisuals.Size = sidebar.Size
 			sidebarVisuals.Position = sidebar.Position
 		end
@@ -1998,10 +1998,8 @@ function Library.CreateWindow(arg1, arg2)
 			logoContainer.Position = UDim2.new(0, 0, 0, 0)
 			logoLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 			logoPadding.PaddingLeft = UDim.new(0, 15)
-			
 			settingsContainer.Visible = true
 			settingsContainer.Position = UDim2.new(1, -120, 0, 0)
-			
 			tabList.Position = UDim2.new(0, 60, 0, 0)
 			tabList.Size = UDim2.new(1, -120, 1, 0)
 			tabListLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -2021,15 +2019,14 @@ function Library.CreateWindow(arg1, arg2)
 			logoContainer.Position = UDim2.new(0, 0, 0, -2)
 			logoLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			logoPadding.PaddingLeft = UDim.new(0, 0)
-			
 			settingsContainer.Visible = false
 
 			if isCollapsed then
 				tabList.Position = UDim2.new(0, 0, 0, 75)
-				tabList.Size = UDim2.new(1, 0, 1, (description and type(description) == "string") and -125 or -90)
+				tabList.Size = UDim2.new(1, 0, 1, (description and type(description) == "string") and -140 or -90)
 			else
 				tabList.Position = UDim2.new(0, 10, 0, 75)
-				tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -125 or -90)
+				tabList.Size = UDim2.new(1, -20, 1, (description and type(description) == "string") and -140 or -90)
 			end
 			
 			tabListLayout.FillDirection = Enum.FillDirection.Vertical
@@ -2058,8 +2055,6 @@ function Library.CreateWindow(arg1, arg2)
 		if descLabel then descLabel.Visible = not isCollapsed end
 		if topbarDescLabel then
 			topbarDescLabel.Visible = isCollapsed
-			topbarDescLabel.Size = topbar.Size
-			topbarDescLabel.Position = topbar.Position
 		end
 		
 		local btnSizeList = (THEME.ElementStyle == 3 or THEME.ElementStyle == 4) and 30 or 38
@@ -2256,7 +2251,6 @@ function Library.CreateWindow(arg1, arg2)
 			hideMain:Play()
 			
 			TS:Create(main, animInfo, {GroupTransparency = 1}):Play()
-			
 			TS:Create(mainOutlineStroke, animInfo, {Transparency = 1}):Play()
 			if sidebarOutlineStroke.Enabled then
 				TS:Create(sidebarOutlineStroke, animInfo, {Transparency = 1}):Play()
@@ -2474,19 +2468,6 @@ function Library.CreateWindow(arg1, arg2)
 			TS:Create(gridOverlay, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
 			themeEditorContainer.Visible = false
 		end
-	end
-
-	local function createBottomLine(parent)
-		local line = Instance.new("Frame")
-		line.Name = "BottomLine"
-		line.Size = UDim2.new(1, 0, 0, 1)
-		line.Position = UDim2.new(0.5, 0, 1, 0)
-		line.AnchorPoint = Vector2.new(0.5, 1)
-		line.BorderSizePixel = 0
-		line.Visible = false
-		line.Parent = parent
-		ApplyTheme(line, "Outlines", "BackgroundColor3")
-		return line
 	end
 
 	local function BuildElementAPI(blockContainer, bName, bIcon, bSide, tabName, isSettings)
@@ -2793,21 +2774,15 @@ function Library.CreateWindow(arg1, arg2)
 			table.insert(Window._connections, previewBox.MouseButton1Click:Connect(function()
 				if Window.ActivePopup == popup then return Window.ClosePopup() end
 				Window.ClosePopup()
-				
 				local absX = previewBox.AbsolutePosition.X - Window.Overlay.AbsolutePosition.X + previewBox.AbsoluteSize.X + 10
 				local absY = previewBox.AbsolutePosition.Y - Window.Overlay.AbsolutePosition.Y
-				
 				popup.Parent = Window.Overlay
 				popup.Position = UDim2.new(0, absX, 0, absY)
-				
 				Window.Overlay.Visible = true
 				Window.ActivePopup = popup
-				
 				popup.Size = UDim2.new(0, 180 * 0.9, 0, 244 * 0.9)
 				popup.Visible = true
-				
 				if popupStroke then popupStroke.Transparency = 0 end
-				
 				Window.ActivePopupClose = function()
 					local fadeInfo = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
 					TS:Create(popup, fadeInfo, {GroupTransparency = 1}):Play()
@@ -2817,7 +2792,6 @@ function Library.CreateWindow(arg1, arg2)
 						if not Window.ActivePopup then Window.Overlay.Visible = false end
 					end)
 				end
-
 				TS:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 					GroupTransparency = 0,
 					Size = UDim2.new(0, 180, 0, 244)
@@ -2900,7 +2874,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local label = Instance.new("TextLabel")
 			label.Name = "DropdownLabel"
-			label.Size = UDim2.new(1, -150, 1, 0)
+			label.Size = UDim2.new(0.52, -15, 1, 0)
 			label.Position = UDim2.new(0, 15, 0, 0)
 			label.BackgroundTransparency = 1
 			label.TextSize = 13
@@ -2914,7 +2888,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local selectedBox = Instance.new("Frame")
 			selectedBox.Name = "SelectedBox"
-			selectedBox.Size = UDim2.new(0, 120, 0, 28)
+			selectedBox.Size = UDim2.new(0.44, 0, 0, 28)
 			selectedBox.AnchorPoint = Vector2.new(1, 0.5)
 			selectedBox.Position = UDim2.new(1, -7, 0.5, 0) 
 			selectedBox.BorderSizePixel = 0
@@ -3195,10 +3169,10 @@ function Library.CreateWindow(arg1, arg2)
 			local function updateStyle(style)
 				if style == 1 then
 					container.Size = UDim2.new(1, 0, 0, 38)
-					label.Size = UDim2.new(1, -150, 1, 0)
+					label.Size = UDim2.new(0.52, -15, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 13
-					selectedBox.Size = UDim2.new(0, 120, 0, 28)
+					selectedBox.Size = UDim2.new(0.44, 0, 0, 28)
 					selectedBox.AnchorPoint = Vector2.new(1, 0.5)
 					selectedBox.Position = UDim2.new(1, -7, 0.5, 0)
 				elseif style == 2 then
@@ -3211,10 +3185,10 @@ function Library.CreateWindow(arg1, arg2)
 					selectedBox.Position = UDim2.new(0, 8, 0, 22) 
 				elseif style == 3 then
 					container.Size = UDim2.new(1, 0, 0, 30)
-					label.Size = UDim2.new(1, -150, 1, 0)
+					label.Size = UDim2.new(0.52, -15, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 12
-					selectedBox.Size = UDim2.new(0, 110, 0, 22)
+					selectedBox.Size = UDim2.new(0.44, 0, 0, 22)
 					selectedBox.AnchorPoint = Vector2.new(1, 0.5)
 					selectedBox.Position = UDim2.new(1, -5, 0.5, 0)
 				elseif style == 4 then
@@ -3290,13 +3264,13 @@ function Library.CreateWindow(arg1, arg2)
 					dropPopup.Position = UDim2.new(0, curX, 0, curY)
 
 					local scrollParent = selectedBox:FindFirstAncestorWhichIsA("ScrollingFrame")
-          if scrollParent then
-	          local sTop = scrollParent.AbsolutePosition.Y - 15
-	          local sBottom = scrollParent.AbsolutePosition.Y + scrollParent.AbsoluteSize.Y + 15
-	          if selectedBox.AbsolutePosition.Y < sTop or selectedBox.AbsolutePosition.Y > sBottom then
-          		Window.ClosePopup()
-          	end
-          end
+					if scrollParent then
+						local sTop = scrollParent.AbsolutePosition.Y - 15
+						local sBottom = scrollParent.AbsolutePosition.Y + scrollParent.AbsoluteSize.Y + 15
+						if selectedBox.AbsolutePosition.Y < sTop or selectedBox.AbsolutePosition.Y > sBottom then
+							Window.ClosePopup()
+						end
+					end
 				end)
 
 				Window.ActivePopupClose = function()
@@ -3464,7 +3438,6 @@ function Library.CreateWindow(arg1, arg2)
 					rightTextLbl.Visible = false
 					bottomTextLbl.Visible = (desc ~= "")
 					img.Visible = (sizePct > 0)
-					
 					bottomTextLbl.Size = UDim2.new(1, 0, 0, 0)
 					bottomTextLbl.Position = UDim2.new(0, 0, 0, sizePct > 0 and (imgH + textGapY) or 0)
 					bottomTextLbl.Text = desc
@@ -3472,11 +3445,9 @@ function Library.CreateWindow(arg1, arg2)
 				else
 					rightTextLbl.Visible = true
 					img.Visible = true
-					
 					local len = string.len(desc)
 					local l, r = 1, len
 					local splitIdx = len
-					
 					while l <= r do
 						local m = math.floor((l + r) / 2)
 						local testStr = string.sub(desc, 1, m)
@@ -3488,7 +3459,6 @@ function Library.CreateWindow(arg1, arg2)
 							l = m + 1
 						end
 					end
-					
 					if splitIdx < len then
 						local safeIdx = splitIdx
 						while safeIdx > 0 and string.sub(desc, safeIdx, safeIdx):match("%S") do
@@ -3496,16 +3466,13 @@ function Library.CreateWindow(arg1, arg2)
 						end
 						if safeIdx > 0 then splitIdx = safeIdx end
 					end
-					
 					local rightText = string.sub(desc, 1, splitIdx)
 					local bottomText = string.sub(desc, splitIdx + 1)
 					bottomText = string.gsub(bottomText, "^%s+", "")
-					
 					rightTextLbl.Position = UDim2.new(0, imgW + textGapX, 0, 0)
 					rightTextLbl.Size = UDim2.new(0, availRightW, 0, imgH)
 					rightTextLbl.Text = rightText
 					rightTextLbl.AutomaticSize = Enum.AutomaticSize.None
-					
 					if bottomText ~= "" then
 						bottomTextLbl.Visible = true
 						bottomTextLbl.Position = UDim2.new(0, 0, 0, imgH + textGapY)
@@ -3519,7 +3486,6 @@ function Library.CreateWindow(arg1, arg2)
 			end
 			
 			table.insert(Window._connections, contentFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout))
-			
 			task.spawn(function()
 				task.wait()
 				updateLayout()
@@ -3822,10 +3788,8 @@ function Library.CreateWindow(arg1, arg2)
 				else
 					if clone:IsA("Model") then
 						clone.PrimaryPart = nil
-						
 						local tempCF = clone:GetBoundingBox()
 						clone:PivotTo(clone:GetPivot() + (-tempCF.Position))
-						
 						cf, size = clone:GetBoundingBox()
 						currentCenter = cf.Position
 					elseif clone:IsA("BasePart") then
@@ -3850,7 +3814,6 @@ function Library.CreateWindow(arg1, arg2)
 						return 
 					end
 					if not viewport.Visible or viewport.AbsoluteSize.X == 0 then return end
-					
 					if not src or not src.Parent then return end
 
 					if isChar then
@@ -3872,7 +3835,6 @@ function Library.CreateWindow(arg1, arg2)
 							end
 						end
 					end
-					
 					updateCamera()
 				end)
 			end
@@ -3933,7 +3895,6 @@ function Library.CreateWindow(arg1, arg2)
 					rightTextLbl.Visible = false
 					bottomTextLbl.Visible = (desc ~= "")
 					viewport.Visible = (sizePct > 0)
-					
 					bottomTextLbl.Size = UDim2.new(1, 0, 0, 0)
 					bottomTextLbl.Position = UDim2.new(0, 0, 0, sizePct > 0 and (vpH + textGapY) or 0)
 					bottomTextLbl.Text = desc
@@ -3941,11 +3902,9 @@ function Library.CreateWindow(arg1, arg2)
 				else
 					rightTextLbl.Visible = true
 					viewport.Visible = true
-					
 					local len = string.len(desc)
 					local l, r = 1, len
 					local splitIdx = len
-					
 					while l <= r do
 						local m = math.floor((l + r) / 2)
 						local testStr = string.sub(desc, 1, m)
@@ -3964,16 +3923,13 @@ function Library.CreateWindow(arg1, arg2)
 						end
 						if safeIdx > 0 then splitIdx = safeIdx end
 					end
-					
 					local rightText = string.sub(desc, 1, splitIdx)
 					local bottomText = string.sub(desc, splitIdx + 1)
 					bottomText = string.gsub(bottomText, "^%s+", "")
-					
 					rightTextLbl.Position = UDim2.new(0, vpW + textGapX, 0, 0)
 					rightTextLbl.Size = UDim2.new(0, availRightW, 0, vpH)
 					rightTextLbl.Text = rightText
 					rightTextLbl.AutomaticSize = Enum.AutomaticSize.None
-					
 					if bottomText ~= "" then
 						bottomTextLbl.Visible = true
 						bottomTextLbl.Position = UDim2.new(0, 0, 0, vpH + textGapY)
@@ -3987,7 +3943,6 @@ function Library.CreateWindow(arg1, arg2)
 			end
 
 			table.insert(Window._connections, contentFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLayout))
-			
 			task.spawn(function()
 				task.wait()
 				updateLayout()
@@ -4091,6 +4046,7 @@ function Library.CreateWindow(arg1, arg2)
 			box.AutomaticSize = Enum.AutomaticSize.X
 			box.AnchorPoint = Vector2.new(1, 0.5)
 			box.Position = UDim2.new(1, -7, 0.5, 0)
+			box.ZIndex = 5
 			box.Parent = el
 			ApplyTheme(box, "Input", "BackgroundColor3")
 			ApplyTheme(box, "InputTrans", "BackgroundTransparency")
@@ -4109,6 +4065,7 @@ function Library.CreateWindow(arg1, arg2)
 			bBtn.TextSize = 12
 			bBtn.Text = getShortKey(bind)
 			bBtn.Font = Enum.Font.Gotham
+			bBtn.ZIndex = 6
 			bBtn.Parent = box
 			ApplyTheme(bBtn, "TextMuted", "TextColor3")
 			ApplyTheme(bBtn, "TextFont", "Font")
@@ -4241,6 +4198,16 @@ function Library.CreateWindow(arg1, arg2)
 				container:SetAttribute("TogglePos", THEME.TogglePosition)
 				CS:AddTag(container, "ComboToggleBind")
 			end
+
+			local fullBarBtn = Instance.new("TextButton")
+			fullBarBtn.Name = "FullBarClick"
+			fullBarBtn.Size = UDim2.new(1, 0, 1, 0)
+			fullBarBtn.Position = UDim2.new(0, 0, 0, 0)
+			fullBarBtn.BackgroundTransparency = 1
+			fullBarBtn.BorderSizePixel = 0
+			fullBarBtn.Text = ""
+			fullBarBtn.ZIndex = 2
+			fullBarBtn.Parent = container
 			
 			local label = Instance.new("TextLabel")
 			label.Name = isCombo and "Label" or "ToggleLabel"
@@ -4252,19 +4219,20 @@ function Library.CreateWindow(arg1, arg2)
 			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.Text = tglName
 			label.Font = Enum.Font.Gotham
+			label.ZIndex = 3
 			label.Parent = container
 			ApplyTheme(label, "Text", "TextColor3")
 			ApplyTheme(label, "TextFont", "Font")
 			if not isCombo then CS:AddTag(label, "ToggleLabelBind") end
 
-			local toggleBox = Instance.new(isCombo and "TextButton" or "Frame")
+			local toggleBox = Instance.new("Frame")
 			toggleBox.Name = "ToggleBox"
 			toggleBox.Size = UDim2.new(0, 24, 0, 24)
 			toggleBox.AnchorPoint = Vector2.new(1, 0.5)
 			toggleBox.Position = UDim2.new(1, -7, 0.5, 0) 
 			toggleBox.BackgroundTransparency = 1
 			toggleBox.BorderSizePixel = 0
-			if isCombo then toggleBox.Text = "" end
+			toggleBox.ZIndex = 3
 			toggleBox.Parent = container
 			if not isCombo then CS:AddTag(toggleBox, "ToggleBoxBind") end
 			
@@ -4285,6 +4253,7 @@ function Library.CreateWindow(arg1, arg2)
 			fill.Position = UDim2.new(0.5, 0, 0.5, 0)
 			fill.AnchorPoint = Vector2.new(0.5, 0.5)
 			fill.BorderSizePixel = 0
+			fill.ZIndex = 4
 			fill.Parent = toggleBox
 			ApplyTheme(fill, "Accent", "BackgroundColor3")
 			
@@ -4296,18 +4265,6 @@ function Library.CreateWindow(arg1, arg2)
 			if state then fill.Size = UDim2.new(1, -10, 1, -10) else fill.Size = UDim2.new(0, 0, 0, 0) end
 
 			local mobileToggle, getMobileBtn
-
-			local btn
-			if not isCombo then
-				btn = Instance.new("TextButton")
-				btn.Name = "ToggleButton"
-				btn.Size = UDim2.new(1, 0, 1, 0)
-				btn.BackgroundTransparency = 1
-				btn.BorderSizePixel = 0
-				btn.Text = ""
-				btn.Parent = container
-			end
-			
 			local previewBox, previewBox2, kbBox, kbBtn
 			local currentColor = defaultColor
 			local currentColor2 = defaultColor2
@@ -4340,6 +4297,7 @@ function Library.CreateWindow(arg1, arg2)
 				previewBox.BackgroundColor3 = defaultColor
 				previewBox.BorderSizePixel = 0
 				previewBox.Text = ""
+				previewBox.ZIndex = 5
 				previewBox.Parent = container
 				
 				local previewCorner = Instance.new("UICorner")
@@ -4365,6 +4323,7 @@ function Library.CreateWindow(arg1, arg2)
 				previewBox2.BackgroundColor3 = defaultColor2
 				previewBox2.BorderSizePixel = 0
 				previewBox2.Text = ""
+				previewBox2.ZIndex = 5
 				previewBox2.Parent = container
 				
 				local previewCorner2 = Instance.new("UICorner")
@@ -4389,6 +4348,7 @@ function Library.CreateWindow(arg1, arg2)
 				kbBox.Name = "KeybindBox"
 				kbBox.BorderSizePixel = 0
 				kbBox.AutomaticSize = Enum.AutomaticSize.X
+				kbBox.ZIndex = 5
 				kbBox.Parent = container
 				ApplyTheme(kbBox, "Input", "BackgroundColor3")
 				ApplyTheme(kbBox, "InputTrans", "BackgroundTransparency")
@@ -4404,6 +4364,7 @@ function Library.CreateWindow(arg1, arg2)
 				kbBtn.BackgroundTransparency = 1
 				kbBtn.Text = getShortKey(bind)
 				kbBtn.Font = Enum.Font.Gotham
+				kbBtn.ZIndex = 6
 				kbBtn.Parent = kbBox
 				ApplyTheme(kbBtn, "TextMuted", "TextColor3")
 				ApplyTheme(kbBtn, "TextFont", "Font")
@@ -4485,7 +4446,6 @@ function Library.CreateWindow(arg1, arg2)
 						end
 						
 						local leftOffset = edge + boxSize + gap
-						
 						label.Position = UDim2.new(0, leftOffset, 0, 0)
 						label.Size = UDim2.new(1, -(leftOffset + rightOffset + 5), 1, 0)
 						label.TextXAlignment = Enum.TextXAlignment.Left
@@ -4494,7 +4454,6 @@ function Library.CreateWindow(arg1, arg2)
 						toggleBox.Position = UDim2.new(1, -edge, 0.5, 0)
 						
 						local offset = edge + boxSize + gap
-						
 						if previewBox then
 							previewBox.AnchorPoint = Vector2.new(1, 0.5)
 							previewBox.Position = UDim2.new(1, -offset, 0.5, 0)
@@ -4514,7 +4473,6 @@ function Library.CreateWindow(arg1, arg2)
 						end
 						
 						offset = offset + 5
-						
 						label.Position = UDim2.new(0, 15, 0, 0)
 						label.Size = UDim2.new(1, -offset - 15, 1, 0)
 						label.TextXAlignment = Enum.TextXAlignment.Left
@@ -4534,7 +4492,6 @@ function Library.CreateWindow(arg1, arg2)
 					ApplyTheme(toggleStroke, "Outlines", "Color")
 					TS:Create(fill, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0)}):Play()
 				end
-				
 				fireCallback()
 				if Window.UpdateKeybinds then Window.UpdateKeybinds() end
 			end
@@ -4553,8 +4510,7 @@ function Library.CreateWindow(arg1, arg2)
 				updateStyle(THEME.ElementStyle)
 			end
 
-			local toggleClickTarget = isCombo and toggleBox or btn
-			table.insert(Window._connections, toggleClickTarget.MouseButton1Click:Connect(function()
+			table.insert(Window._connections, fullBarBtn.MouseButton1Click:Connect(function()
 				state = not state
 				updateToggle()
 			end))
@@ -4642,13 +4598,14 @@ function Library.CreateWindow(arg1, arg2)
 		function BlockObj:CreateInput(inpConfig)
 			local inpName = inpConfig.Name or "Input"
 			local placeholder = inpConfig.Placeholder or "..."
+			local defaultText = inpConfig.Default or ""
 			local callback = inpConfig.Callback or function() end
 
 			local container = CreateElementBase(38)
 
 			local label = Instance.new("TextLabel")
 			label.Name = "InputLabel"
-			label.Size = UDim2.new(1, -150, 1, 0)
+			label.Size = UDim2.new(0.52, -15, 1, 0)
 			label.Position = UDim2.new(0, 15, 0, 0)
 			label.BackgroundTransparency = 1
 			label.TextSize = 13
@@ -4662,7 +4619,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local inputBox = Instance.new("Frame")
 			inputBox.Name = "InputBox"
-			inputBox.Size = UDim2.new(0, 120, 0, 28)
+			inputBox.Size = UDim2.new(0.44, 0, 0, 28)
 			inputBox.AnchorPoint = Vector2.new(1, 0.5)
 			inputBox.Position = UDim2.new(1, -7, 0.5, 0)
 			inputBox.BorderSizePixel = 0
@@ -4686,7 +4643,7 @@ function Library.CreateWindow(arg1, arg2)
 			textBox.BorderSizePixel = 0
 			textBox.TextSize = 12
 			textBox.PlaceholderText = placeholder
-			textBox.Text = ""
+			textBox.Text = defaultText
 			textBox.TextXAlignment = Enum.TextXAlignment.Center
 			textBox.TextTruncate = Enum.TextTruncate.AtEnd
 			textBox.Font = Enum.Font.Gotham
@@ -4698,10 +4655,10 @@ function Library.CreateWindow(arg1, arg2)
 			local function updateStyle(style)
 				if style == 1 then
 					container.Size = UDim2.new(1, 0, 0, 38)
-					label.Size = UDim2.new(1, -150, 1, 0)
+					label.Size = UDim2.new(0.52, -15, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 13
-					inputBox.Size = UDim2.new(0, 120, 0, 28)
+					inputBox.Size = UDim2.new(0.44, 0, 0, 28)
 					inputBox.AnchorPoint = Vector2.new(1, 0.5)
 					inputBox.Position = UDim2.new(1, -7, 0.5, 0)
 				elseif style == 2 then
@@ -4714,10 +4671,10 @@ function Library.CreateWindow(arg1, arg2)
 					inputBox.Position = UDim2.new(0, 8, 0, 22) 
 				elseif style == 3 then
 					container.Size = UDim2.new(1, 0, 0, 30)
-					label.Size = UDim2.new(1, -150, 1, 0)
+					label.Size = UDim2.new(0.52, -15, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 12
-					inputBox.Size = UDim2.new(0, 110, 0, 22)
+					inputBox.Size = UDim2.new(0.44, 0, 0, 22)
 					inputBox.AnchorPoint = Vector2.new(1, 0.5)
 					inputBox.Position = UDim2.new(1, -5, 0.5, 0)
 				elseif style == 4 then
@@ -4792,7 +4749,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local label = Instance.new("TextLabel")
 			label.Name = "SliderLabel"
-			label.Size = UDim2.new(0.4, 0, 1, 0)
+			label.Size = UDim2.new(0.35, 0, 1, 0)
 			label.Position = UDim2.new(0, 15, 0, 0)
 			label.BackgroundTransparency = 1
 			label.TextSize = 13
@@ -4806,7 +4763,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local valueBox = Instance.new("Frame")
 			valueBox.Name = "ValueBox"
-			valueBox.Size = UDim2.new(0, 60, 0, 24)
+			valueBox.Size = UDim2.new(0, 52, 0, 24)
 			valueBox.AnchorPoint = Vector2.new(1, 0.5)
 			valueBox.Position = UDim2.new(1, -7, 0.5, 0)
 			valueBox.BorderSizePixel = 0
@@ -4836,9 +4793,9 @@ function Library.CreateWindow(arg1, arg2)
 
 			local track = Instance.new("Frame")
 			track.Name = "Track"
-			track.Size = UDim2.new(0.6, -100, 0, 6) 
+			track.Size = UDim2.new(0.52, -64, 0, 6) 
 			track.AnchorPoint = Vector2.new(1, 0.5)
-			track.Position = UDim2.new(1, -72, 0.5, 0)
+			track.Position = UDim2.new(1, -64, 0.5, 0)
 			track.BorderSizePixel = 0
 			track.Parent = container
 			ApplyTheme(track, "Input", "BackgroundColor3")
@@ -4847,7 +4804,6 @@ function Library.CreateWindow(arg1, arg2)
 			local trackCorner = Instance.new("UICorner")
 			trackCorner.CornerRadius = UDim.new(1, 0)
 			trackCorner.Parent = track
-			CS:AddTag(trackCorner, "ElementCorner")
 
 			local fill = Instance.new("Frame")
 			fill.Name = "Fill"
@@ -4859,53 +4815,75 @@ function Library.CreateWindow(arg1, arg2)
 			local fillCorner = Instance.new("UICorner")
 			fillCorner.CornerRadius = UDim.new(1, 0)
 			fillCorner.Parent = fill
-			CS:AddTag(fillCorner, "ElementCorner")
+
+			local knob = Instance.new("Frame")
+			knob.Name = "SliderKnob"
+			knob.Size = UDim2.new(0, 12, 0, 12)
+			knob.AnchorPoint = Vector2.new(0.5, 0.5)
+			knob.Position = UDim2.new(math.clamp((default - min) / (max - min), 0, 1), 0, 0.5, 0)
+			knob.BorderSizePixel = 0
+			knob.ZIndex = 3
+			knob.Parent = track
+			ApplyTheme(knob, "Accent", "BackgroundColor3")
+
+			local knobCorner = Instance.new("UICorner")
+			knobCorner.CornerRadius = UDim.new(1, 0)
+			knobCorner.Parent = knob
+
+			local knobStroke = Instance.new("UIStroke")
+			knobStroke.Thickness = 1.5
+			knobStroke.Color = Color3.fromRGB(255, 255, 255)
+			knobStroke.Parent = knob
 
 			local function updateStyle(style)
 				if style == 1 then
 					container.Size = UDim2.new(1, 0, 0, 38)
-					label.Size = UDim2.new(0.4, 0, 1, 0)
+					label.Size = UDim2.new(0.35, 0, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 13
-					valueBox.Size = UDim2.new(0, 60, 0, 24)
+					valueBox.Size = UDim2.new(0, 52, 0, 24)
 					valueBox.AnchorPoint = Vector2.new(1, 0.5)
 					valueBox.Position = UDim2.new(1, -7, 0.5, 0)
-					track.Size = UDim2.new(0.6, -100, 0, 6)
+					track.Size = UDim2.new(0.52, -64, 0, 6)
 					track.AnchorPoint = Vector2.new(1, 0.5)
-					track.Position = UDim2.new(1, -72, 0.5, 0)
+					track.Position = UDim2.new(1, -64, 0.5, 0)
+					knob.Size = UDim2.new(0, 12, 0, 12)
 				elseif style == 2 then
 					container.Size = UDim2.new(1, 0, 0, 44)
 					label.Size = UDim2.new(0.5, 0, 0, 16)
 					label.Position = UDim2.new(0, 12, 0, 6)
 					label.TextSize = 13
-					valueBox.Size = UDim2.new(0, 60, 0, 20)
+					valueBox.Size = UDim2.new(0, 52, 0, 20)
 					valueBox.AnchorPoint = Vector2.new(1, 0)
 					valueBox.Position = UDim2.new(1, -12, 0, 4)
 					track.Size = UDim2.new(1, -24, 0, 6)
 					track.AnchorPoint = Vector2.new(0.5, 0)
 					track.Position = UDim2.new(0.5, 0, 0, 28)
+					knob.Size = UDim2.new(0, 12, 0, 12)
 				elseif style == 3 then
 					container.Size = UDim2.new(1, 0, 0, 30)
-					label.Size = UDim2.new(0.4, 0, 1, 0)
+					label.Size = UDim2.new(0.35, 0, 1, 0)
 					label.Position = UDim2.new(0, 15, 0, 0)
 					label.TextSize = 12
-					valueBox.Size = UDim2.new(0, 60, 0, 20)
+					valueBox.Size = UDim2.new(0, 52, 0, 20)
 					valueBox.AnchorPoint = Vector2.new(1, 0.5)
 					valueBox.Position = UDim2.new(1, -5, 0.5, 0)
-					track.Size = UDim2.new(0.6, -100, 0, 4)
+					track.Size = UDim2.new(0.52, -64, 0, 4)
 					track.AnchorPoint = Vector2.new(1, 0.5)
-					track.Position = UDim2.new(1, -69, 0.5, 0)
+					track.Position = UDim2.new(1, -61, 0.5, 0)
+					knob.Size = UDim2.new(0, 10, 0, 10)
 				elseif style == 4 then
 					container.Size = UDim2.new(1, 0, 0, 38)
 					label.Size = UDim2.new(0.5, 0, 0, 14)
 					label.Position = UDim2.new(0, 12, 0, 4)
 					label.TextSize = 12
-					valueBox.Size = UDim2.new(0, 60, 0, 18)
+					valueBox.Size = UDim2.new(0, 52, 0, 18)
 					valueBox.AnchorPoint = Vector2.new(1, 0)
 					valueBox.Position = UDim2.new(1, -12, 0, 3)
 					track.Size = UDim2.new(1, -24, 0, 4)
 					track.AnchorPoint = Vector2.new(0.5, 0)
 					track.Position = UDim2.new(0.5, 0, 0, 24)
+					knob.Size = UDim2.new(0, 10, 0, 10)
 				end
 			end
 			table.insert(Window._styleCallbacks, updateStyle)
@@ -4918,7 +4896,9 @@ function Library.CreateWindow(arg1, arg2)
 				local steppedValue = roundVal(rawValue)
 				currentValue = steppedValue
 				valueInput.Text = formatVal(steppedValue)
-				TS:Create(fill, TweenInfo.new(0.1), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
+				local alpha = math.clamp((steppedValue - min) / (max - min), 0, 1)
+				TS:Create(fill, TweenInfo.new(0.1), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
+				TS:Create(knob, TweenInfo.new(0.1), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
 				callback(steppedValue)
 			end
 
@@ -4947,12 +4927,15 @@ function Library.CreateWindow(arg1, arg2)
 					local steppedValue = roundVal(num)
 					currentValue = steppedValue
 					valueInput.Text = formatVal(steppedValue)
-					TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
+					local alpha = math.clamp((steppedValue - min) / (max - min), 0, 1)
+					TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
+					TS:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
 					callback(steppedValue)
 				else
 					currentValue = min
 					valueInput.Text = formatVal(min)
 					fill.Size = UDim2.new(0, 0, 1, 0)
+					knob.Position = UDim2.new(0, 0, 0.5, 0)
 					callback(min)
 				end
 			end))
@@ -4963,7 +4946,9 @@ function Library.CreateWindow(arg1, arg2)
 				local steppedValue = roundVal(newVal)
 				currentValue = steppedValue
 				valueInput.Text = formatVal(steppedValue)
-				TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new((steppedValue - min) / (max - min), 0, 1, 0)}):Play()
+				local alpha = math.clamp((steppedValue - min) / (max - min), 0, 1)
+				TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
+				TS:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
 				callback(steppedValue)
 			end
 			function api:Save()
@@ -5156,7 +5141,7 @@ function Library.CreateWindow(arg1, arg2)
 				leftLine.Name = "LeftLine"
 				leftLine.Size = UDim2.new(0.5, -5, 0, 1)
 				leftLine.Position = UDim2.new(0, 0, 0.5, 0)
-				leftLine.AnchorPoint = Vector2.new(0, 0.5)
+				leftLine.AnchorPoint = Vector2.new(0.5, 0.5)
 				leftLine.BorderSizePixel = 0
 				leftLine.Parent = container
 				ApplyTheme(leftLine, "Outlines", "BackgroundColor3")
@@ -5319,7 +5304,7 @@ function Library.CreateWindow(arg1, arg2)
 				bind = k
 				bBtn.Text = getShortKey(k)
 				local mb = getMobileBtn and getMobileBtn()
-				if mb then mb.Text = getShortKey(k) end
+				if mb then mb.Text = getShortKey(bind) end
 			end
 			function api:Save()
 				return { Bind = bind and bind.Name or nil }
@@ -5478,6 +5463,7 @@ function Library.CreateWindow(arg1, arg2)
 		
 		local leftColLayout = Instance.new("UIListLayout")
 		leftColLayout.Name = "LeftColLayout"
+		leftColLayout.FillDirection = Enum.FillDirection.Vertical
 		leftColLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		leftColLayout.Padding = UDim.new(0, 14)
 		leftColLayout.Parent = leftColumn
@@ -5491,6 +5477,7 @@ function Library.CreateWindow(arg1, arg2)
 		
 		local rightColLayout = Instance.new("UIListLayout")
 		rightColLayout.Name = "RightColLayout"
+		rightColLayout.FillDirection = Enum.FillDirection.Vertical
 		rightColLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		rightColLayout.Padding = UDim.new(0, 14)
 		rightColLayout.Parent = rightColumn
@@ -5680,6 +5667,7 @@ function Library.CreateWindow(arg1, arg2)
 
 			local blockLayout = Instance.new("UIListLayout")
 			blockLayout.Name = "BlockLayout"
+			blockLayout.FillDirection = Enum.FillDirection.Vertical
 			blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 			blockLayout.Padding = UDim.new(0, 6)
 			blockLayout.Parent = blockContainer
@@ -5779,16 +5767,14 @@ function Library.CreateWindow(arg1, arg2)
 				tabsContainer.Size = UDim2.new(1, -32, 1, 0) 
 				tabsContainer.BackgroundTransparency = 1
 				tabsContainer.Parent = headerWrapper
-				
-				local indicatorContainer = Instance.new("Frame")
-				indicatorContainer.Name = "IndicatorContainer"
-				indicatorContainer.Size = UDim2.new(1, -32, 1, 0)
-				indicatorContainer.BackgroundTransparency = 1
-				indicatorContainer.Parent = headerWrapper
+
+				local gap = 4
+				local totalGaps = gap * (#variants - 1)
 
 				local headerLayout = Instance.new("UIListLayout")
 				headerLayout.FillDirection = Enum.FillDirection.Horizontal
 				headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+				headerLayout.Padding = UDim.new(0, gap)
 				headerLayout.Parent = tabsContainer
 
 				local blockDivider = Instance.new("Frame")
@@ -5799,51 +5785,18 @@ function Library.CreateWindow(arg1, arg2)
 				blockDivider.Parent = blockContainer
 				ApplyTheme(blockDivider, "Outlines", "BackgroundColor3")
 
-				local tabWidth = 1 / #variants
 				local activeIndex = 1
 				local contentContainers = {}
 				local apis = {}
 				local tabs = {}
 
-				local indicator = Instance.new("Frame")
-				indicator.Name = "Indicator"
-				indicator.Size = UDim2.new(0, 40, 0, 2)
-				indicator.AnchorPoint = Vector2.new(0.5, 1)
-				indicator.BorderSizePixel = 0
-				indicator.ZIndex = 2
-				indicator.Parent = indicatorContainer
-				ApplyTheme(indicator, "Accent", "BackgroundColor3")
-				
-				local indCorner = Instance.new("UICorner")
-				indCorner.CornerRadius = UDim.new(1, 0)
-				indCorner.Parent = indicator
-
-				local function getIndicatorPos(index)
-					local curPad = (THEME.ElementStyle == 3 or THEME.ElementStyle == 4) and 8 or 12
-					local offset = 0
-					
-					if index == 1 then
-						offset = -curPad / 2
-					elseif index == #variants then
-						offset = curPad / 2
+				local function updateVariantTabTexts()
+					for _, tData in ipairs(tabs) do
+						local padX = 14
+						local maxW = tData.Btn.AbsoluteSize.X - (tData.HasIcon and 24 or 8) - padX
+						local font = Enum.Font[THEME.TextFont] or Enum.Font.Gotham
+						tData.Label.Text = truncateTwoDots(tData.RawName, font, tData.Label.TextSize, math.max(0, maxW))
 					end
-					
-					return UDim2.new(tabWidth * (index - 0.5), offset, 1, -1)
-				end
-				
-				local function updateIndicatorSize(index)
-					local tabData = tabs[index]
-					if not tabData then return end
-					
-					local textW = tabData.Label.TextBounds.X
-					if textW <= 0 then textW = 40 end
-					local iconW = tabData.HasIcon and 20 or 0
-					local totalW = textW + iconW + 4 
-					
-					TS:Create(indicator, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-						Size = UDim2.new(0, totalW, 0, 2),
-						Position = getIndicatorPos(index)
-					}):Play()
 				end
 
 				for i, vData in ipairs(variants) do
@@ -5852,16 +5805,32 @@ function Library.CreateWindow(arg1, arg2)
 
 					local tabBtn = Instance.new("TextButton")
 					tabBtn.Name = "Tab_" .. vName
-					tabBtn.Size = UDim2.new(tabWidth, 0, 1, 0)
+					tabBtn.Size = UDim2.new(1 / #variants, -(totalGaps / #variants), 1, 0)
 					tabBtn.BackgroundTransparency = 1
+					tabBtn.AutoButtonColor = false
 					tabBtn.Text = ""
 					tabBtn.LayoutOrder = i
 					tabBtn.Parent = tabsContainer
 					
 					table.insert(dragTriggers, tabBtn)
 
+					local tabBtnCorner = Instance.new("UICorner")
+					tabBtnCorner.CornerRadius = GLOBAL_CORNER
+					tabBtnCorner.Parent = tabBtn
+					CS:AddTag(tabBtnCorner, "ElementCorner")
+
+					local tabStroke = Instance.new("UIStroke")
+					tabStroke.Name = "TabStroke"
+					tabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+					tabStroke.Thickness = 1
+					tabStroke.Transparency = (i == 1) and 0 or 1
+					tabStroke.Parent = tabBtn
+					ApplyTheme(tabStroke, "Outlines", "Color")
+
 					local tabPad = Instance.new("UIPadding")
 					tabPad.Name = "TabPadding"
+					tabPad.PaddingLeft = UDim.new(0, 6)
+					tabPad.PaddingRight = UDim.new(0, 6)
 					tabPad.Parent = tabBtn
 
 					local btnLayout = Instance.new("UIListLayout")
@@ -5887,6 +5856,8 @@ function Library.CreateWindow(arg1, arg2)
 					tLabel.Size = UDim2.new(0, 0, 1, 0)
 					tLabel.BackgroundTransparency = 1
 					tLabel.TextSize = 12
+					tLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					tLabel.TextXAlignment = Enum.TextXAlignment.Center
 					tLabel.Text = vName
 					tLabel.Parent = tabBtn
 					ApplyTheme(tLabel, i == 1 and "Text" or "TextMuted", "TextColor3")
@@ -5894,7 +5865,9 @@ function Library.CreateWindow(arg1, arg2)
 					
 					tabs[i] = {
 						Btn = tabBtn,
+						Stroke = tabStroke,
 						Label = tLabel,
+						RawName = vName,
 						HasIcon = (vIcon and vIcon ~= "")
 					}
 
@@ -5909,6 +5882,7 @@ function Library.CreateWindow(arg1, arg2)
 					contentContainers[i] = contentFrame
 
 					local cLayout = Instance.new("UIListLayout")
+					cLayout.FillDirection = Enum.FillDirection.Vertical
 					cLayout.SortOrder = Enum.SortOrder.LayoutOrder
 					cLayout.Padding = UDim.new(0, 6)
 					cLayout.Parent = contentFrame
@@ -5920,77 +5894,57 @@ function Library.CreateWindow(arg1, arg2)
 					tabBtn.MouseButton1Click:Connect(function()
 						if activeIndex == i then return end
 						
-						local oldBtn = tabs[activeIndex].Btn
-						for _, child in ipairs(oldBtn:GetChildren()) do
-							if child:IsA("ImageLabel") then ApplyTheme(child, "TextMuted", "ImageColor3") end
-							if child:IsA("TextLabel") then 
-								ApplyTheme(child, "TextMuted", "TextColor3") 
-								ApplyTheme(child, "SubtextFont", "Font")
+						local oldTab = tabs[activeIndex]
+						if oldTab then
+							if oldTab.Stroke then
+								TS:Create(oldTab.Stroke, TweenInfo.new(0.25), {Transparency = 1}):Play()
+							end
+							for _, child in ipairs(oldTab.Btn:GetChildren()) do
+								if child:IsA("ImageLabel") then ApplyTheme(child, "TextMuted", "ImageColor3") end
+								if child:IsA("TextLabel") then 
+									ApplyTheme(child, "TextMuted", "TextColor3") 
+									ApplyTheme(child, "SubtextFont", "Font")
+								end
 							end
 						end
 						contentContainers[activeIndex].Visible = false
 						
 						activeIndex = i
-						for _, child in ipairs(tabBtn:GetChildren()) do
-							if child:IsA("ImageLabel") then ApplyTheme(child, "Text", "ImageColor3") end
-							if child:IsA("TextLabel") then 
-								ApplyTheme(child, "Text", "TextColor3") 
-								ApplyTheme(child, "TextFont", "Font")
+						local newTab = tabs[i]
+						if newTab then
+							if newTab.Stroke then
+								TS:Create(newTab.Stroke, TweenInfo.new(0.25), {Transparency = 0}):Play()
+							end
+							for _, child in ipairs(newTab.Btn:GetChildren()) do
+								if child:IsA("ImageLabel") then ApplyTheme(child, "Text", "ImageColor3") end
+								if child:IsA("TextLabel") then 
+									ApplyTheme(child, "Text", "TextColor3") 
+									ApplyTheme(child, "TextFont", "Font")
+								end
 							end
 						end
 						contentContainers[activeIndex].Visible = true
-
-						updateIndicatorSize(i)
 					end)
 
 					local bObj = BuildElementAPI(contentFrame, vName, vIcon, bSide, name, tabData.IsSettings)
 					
 					function bObj:SetTitle(newTitle)
-						tLabel.Text = newTitle
-						task.wait()
-						if activeIndex == i then updateIndicatorSize(i) end
+						tabs[i].RawName = newTitle
+						updateVariantTabTexts()
 					end
 
 					apis[i] = bObj
-					
-					if i < #variants then
-						local tabSep = Instance.new("Frame")
-						tabSep.Name = "TabSeparator_" .. i
-						tabSep.Size = UDim2.new(0, 1, 0.45, 0) 
-						tabSep.AnchorPoint = Vector2.new(0.5, 0.5)
-						tabSep.Position = UDim2.new(tabWidth * i, 0, 0.5, 0)
-						tabSep.BorderSizePixel = 0
-						tabSep.ZIndex = 3
-						tabSep.Parent = indicatorContainer
-						ApplyTheme(tabSep, "Outlines", "BackgroundColor3")
-					end
 				end
 				
+				table.insert(Window._connections, tabsContainer:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateVariantTabTexts))
+
 				task.spawn(function()
 					task.wait()
-					updateIndicatorSize(activeIndex)
+					updateVariantTabTexts()
 				end)
 
 				local function updateBlockStyle(style)
-					local curPad = (style == 3 or style == 4) and 8 or 12
-					
-					for idx, tData in ipairs(tabs) do
-						local tPad = tData.Btn:FindFirstChild("TabPadding")
-						if tPad then
-							if idx == 1 then
-								tPad.PaddingRight = UDim.new(0, curPad)
-								tPad.PaddingLeft = UDim.new(0, 0)
-							elseif idx == #tabs then
-								tPad.PaddingLeft = UDim.new(0, curPad)
-								tPad.PaddingRight = UDim.new(0, 0)
-							else
-								tPad.PaddingLeft = UDim.new(0, 0)
-								tPad.PaddingRight = UDim.new(0, 0)
-							end
-						end
-					end
-
-					updateIndicatorSize(activeIndex)
+					updateVariantTabTexts()
 
 					if style == 3 or style == 4 then
 						blockPadding.PaddingTop = UDim.new(0, 8)
@@ -6597,7 +6551,7 @@ function Library.CreateWindow(arg1, arg2)
 		table.insert(Window._connections, kbEdgeBtn.MouseButton1Click:Connect(function()
 			kbIsOpen = not kbIsOpen
 			UpdateKBDocking()
-      startKBLoop()
+			startKBLoop()
 		end))
 
 		local kbDragging = false
@@ -6664,67 +6618,67 @@ function Library.CreateWindow(arg1, arg2)
 						local isToggle = (element.Type == "Toggle")
 						local isActive = (data.State == true)
 
-					local row = Instance.new("Frame")
-					row.Name = "Row_" .. tostring(itemName)
-					row.Size = UDim2.new(1, 0, 0, 22)
-					row.BackgroundTransparency = 1
-					row.Parent = kbEntries
+						local row = Instance.new("Frame")
+						row.Name = "Row_" .. tostring(itemName)
+						row.Size = UDim2.new(1, 0, 0, 22)
+						row.BackgroundTransparency = 1
+						row.Parent = kbEntries
 
-					local rowTitle = Instance.new("TextLabel")
-					rowTitle.Size = UDim2.new(1, -40, 1, 0)
-					rowTitle.Position = UDim2.new(0, 0, 0, 0)
-					rowTitle.BackgroundTransparency = 1
-					rowTitle.TextSize = 12
-					rowTitle.Text = tostring(itemName)
-					rowTitle.TextXAlignment = Enum.TextXAlignment.Left
-					rowTitle.TextTruncate = Enum.TextTruncate.AtEnd
-					rowTitle.Parent = row
-					ApplyTheme(rowTitle, "Text", "TextColor3")
-					ApplyTheme(rowTitle, "TextFont", "Font")
+						local rowTitle = Instance.new("TextLabel")
+						rowTitle.Size = UDim2.new(1, -40, 1, 0)
+						rowTitle.Position = UDim2.new(0, 0, 0, 0)
+						rowTitle.BackgroundTransparency = 1
+						rowTitle.TextSize = 12
+						rowTitle.Text = tostring(itemName)
+						rowTitle.TextXAlignment = Enum.TextXAlignment.Left
+						rowTitle.TextTruncate = Enum.TextTruncate.AtEnd
+						rowTitle.Parent = row
+						ApplyTheme(rowTitle, "Text", "TextColor3")
+						ApplyTheme(rowTitle, "TextFont", "Font")
 
-					local badge = Instance.new("Frame")
-					badge.Size = UDim2.new(0, 26, 0, 18)
-					badge.AnchorPoint = Vector2.new(1, 0.5)
-					badge.Position = UDim2.new(1, 0, 0.5, 0)
-					badge.AutomaticSize = Enum.AutomaticSize.X
-					badge.BorderSizePixel = 0
-					badge.Parent = row
-					ApplyTheme(badge, "Input", "BackgroundColor3")
-					ApplyTheme(badge, "InputTrans", "BackgroundTransparency")
+						local badge = Instance.new("Frame")
+						badge.Size = UDim2.new(0, 26, 0, 18)
+						badge.AnchorPoint = Vector2.new(1, 0.5)
+						badge.Position = UDim2.new(1, 0, 0.5, 0)
+						badge.AutomaticSize = Enum.AutomaticSize.X
+						badge.BorderSizePixel = 0
+						badge.Parent = row
+						ApplyTheme(badge, "Input", "BackgroundColor3")
+						ApplyTheme(badge, "InputTrans", "BackgroundTransparency")
 
-					local badgeCorner = Instance.new("UICorner")
-					badgeCorner.CornerRadius = UDim.new(0, hudCornerRadiusNum)
-					badgeCorner.Parent = badge
-					CS:AddTag(badgeCorner, "HUDCorner")
+						local badgeCorner = Instance.new("UICorner")
+						badgeCorner.CornerRadius = UDim.new(0, hudCornerRadiusNum)
+						badgeCorner.Parent = badge
+						CS:AddTag(badgeCorner, "HUDCorner")
 
-					local badgeStroke = Instance.new("UIStroke")
-					badgeStroke.Thickness = 1
-					badgeStroke.Parent = badge
+						local badgeStroke = Instance.new("UIStroke")
+						badgeStroke.Thickness = 1
+						badgeStroke.Parent = badge
 
-					if isToggle and isActive then
-						ApplyTheme(badgeStroke, "Accent", "Color")
-					else
-						ApplyTheme(badgeStroke, "Outlines", "Color")
-					end
+						if isToggle and isActive then
+							ApplyTheme(badgeStroke, "Accent", "Color")
+						else
+							ApplyTheme(badgeStroke, "Outlines", "Color")
+						end
 
-					local badgeTxt = Instance.new("TextLabel")
-					badgeTxt.Size = UDim2.new(1, 0, 1, 0)
-					badgeTxt.BackgroundTransparency = 1
-					badgeTxt.TextSize = 11
-					badgeTxt.Text = shortKeyTxt
-					badgeTxt.Parent = badge
-					ApplyTheme(badgeTxt, "SubtextFont", "Font")
+						local badgeTxt = Instance.new("TextLabel")
+						badgeTxt.Size = UDim2.new(1, 0, 1, 0)
+						badgeTxt.BackgroundTransparency = 1
+						badgeTxt.TextSize = 11
+						badgeTxt.Text = shortKeyTxt
+						badgeTxt.Parent = badge
+						ApplyTheme(badgeTxt, "SubtextFont", "Font")
 
-					if isToggle and isActive then
-						ApplyTheme(badgeTxt, "Accent", "TextColor3")
-					else
-						ApplyTheme(badgeTxt, "TextMuted", "TextColor3")
-					end
+						if isToggle and isActive then
+							ApplyTheme(badgeTxt, "Accent", "TextColor3")
+						else
+							ApplyTheme(badgeTxt, "TextMuted", "TextColor3")
+						end
 
-					local badgePad = Instance.new("UIPadding")
-					badgePad.PaddingLeft = UDim.new(0, 5)
-					badgePad.PaddingRight = UDim.new(0, 5)
-					badgePad.Parent = badgeTxt
+						local badgePad = Instance.new("UIPadding")
+						badgePad.PaddingLeft = UDim.new(0, 5)
+						badgePad.PaddingRight = UDim.new(0, 5)
+						badgePad.Parent = badgeTxt
 					end
 				end
 			end
@@ -6781,373 +6735,352 @@ function Library.CreateWindow(arg1, arg2)
 		Name = "GUI Edit",
 		Default = false,
 		Callback = function(state)
-				Window.ToggleEditMode(state)
-			end
-		})
+			Window.ToggleEditMode(state)
+		end
+	})
 	
-		MainSettingsBlock:CreateLabel("Enable GUI Edit to visually customize the menu without game interference. The mouse will be forced to stay unlocked.")
-	
-		local ThemeSaveBlock = Window.SettingsTab:CreateBlock({
-			Name = "Theme Management",
-			Side = "Left"
-		})
-	
+	MainSettingsBlock:CreateLabel("Enable GUI Edit to visually customize the menu without game interference. The mouse will be forced to stay unlocked.")
+
+	local ThemeSaveBlock = Window.SettingsTab:CreateBlock({
+		Name = "Theme Management",
+		Side = "Left"
+	})
+
+	safeMakeFolder(Window.ThemeFolder)
+
+	local function getThemes()
+		local list = {}
 		safeMakeFolder(Window.ThemeFolder)
-	
-		local function getThemes()
-			local list = {}
-			safeMakeFolder(Window.ThemeFolder)
-			for _, file in pairs(safeListFiles(Window.ThemeFolder)) do
-				local clean = tostring(file):gsub("[%z\r\n%s]+$", "")
-				if clean:lower():match("%.json$") then
-					local name = clean:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
-					if name and name ~= "" then 
-						table.insert(list, name) 
-					end
+		for _, file in pairs(safeListFiles(Window.ThemeFolder)) do
+			local clean = tostring(file):gsub("[%z\r\n%s]+$", "")
+			if clean:lower():match("%.json$") then
+				local name = clean:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
+				if name and name ~= "" then 
+					table.insert(list, name) 
 				end
 			end
-			return list
 		end
-	
-		local themeNameInput = ThemeSaveBlock:CreateInput({
-			Name = "Theme Name",
-			Placeholder = "Enter theme name..."
-		})
-	
-		local themeDropdown = ThemeSaveBlock:CreateDropdown({
-			Name = "Select Theme",
-			Options = getThemes(),
-		})
-	
-		local themeAutoLoadPath = Window.ThemeFolder .. "/autoload_theme.txt"
-		local currentThemeAutoLoad = safeReadFile(themeAutoLoadPath)
-		currentThemeAutoLoad = currentThemeAutoLoad and currentThemeAutoLoad:match("^%s*(.-)%s*$") or ""
+		return list
+	end
 
-		local themeNameInput = ThemeSaveBlock:CreateInput({
-			Name = "Theme Name",
-			Placeholder = "Enter theme name..."
-		})
-	
-		local themeDropdown = ThemeSaveBlock:CreateDropdown({
-			Name = "Select Theme",
-			Options = getThemes(),
-			Default = (currentThemeAutoLoad ~= "" and currentThemeAutoLoad or nil)
-		})
-	
-		ThemeSaveBlock:CreateButton({
-			Name = "Load Theme",
-			Callback = function()
-				local tName = themeDropdown:Save().Selected
-				if tName and tName ~= "" then
-					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					local raw = safeReadFile(path)
-					if raw and raw ~= "" then
-						local success, res = pcall(function() return HttpService:JSONDecode(raw) end)
-						if success and type(res) == "table" then
-							for id, val in pairs(res) do
-								if id == "SidebarWidth" then
-									updateSidebarWidth(val)
-								elseif Window._themeElements[id] then
-									Window._themeElements[id].API:Load(val)
-								end
+	local themeAutoLoadPath = Window.ThemeFolder .. "/autoload_theme.txt"
+	local currentThemeAutoLoad = safeReadFile(themeAutoLoadPath)
+	currentThemeAutoLoad = currentThemeAutoLoad and currentThemeAutoLoad:match("^%s*(.-)%s*$") or ""
+
+	local themeNameInput = ThemeSaveBlock:CreateInput({
+		Name = "Theme Name",
+		Placeholder = "Enter theme name..."
+	})
+
+	local themeDropdown = ThemeSaveBlock:CreateDropdown({
+		Name = "Select Theme",
+		Options = getThemes(),
+		Default = (currentThemeAutoLoad ~= "" and currentThemeAutoLoad or nil)
+	})
+
+	ThemeSaveBlock:CreateButton({
+		Name = "Load Theme",
+		Callback = function()
+			local tName = themeDropdown:Save().Selected
+			if tName and tName ~= "" then
+				local path = Window.ThemeFolder .. "/" .. tName .. ".json"
+				local raw = safeReadFile(path)
+				if raw and raw ~= "" then
+					local success, res = pcall(function() return HttpService:JSONDecode(raw) end)
+					if success and type(res) == "table" then
+						for id, val in pairs(res) do
+							if id == "SidebarWidth" then
+								updateSidebarWidth(val)
+							elseif Window._themeElements[id] then
+								Window._themeElements[id].API:Load(val)
 							end
-							Window:Notify({
-								Title = "Theme System",
-								Description = "Loaded theme: " .. tName,
-								Duration = 3,
-								Icon = SETTINGS_ICON_ID
-							})
 						end
+						Window:Notify({
+							Title = "Theme System",
+							Description = "Loaded theme: " .. tName,
+							Duration = 3,
+							Icon = SETTINGS_ICON_ID
+						})
 					end
 				end
 			end
-		})
-	
-		ThemeSaveBlock:CreateButton({
-			Name = "Save Theme",
-			Callback = function()
-				local tName = themeNameInput:Save().Text
-				if not tName or tName == "" then
-					tName = themeDropdown:Save().Selected
-				end
-				if tName and tName ~= "" then
-					local data = {}
-					for id, el in pairs(Window._themeElements) do
-						if not string.find(id, "~Configuration~") and not string.find(id, "~Theme Management~") and not string.find(id, "~UI Configuration~") then
-							local savedData = el.API:Save()
-							if savedData then
-								data[id] = savedData
-							end
+		end
+	})
+
+	ThemeSaveBlock:CreateButton({
+		Name = "Save Theme",
+		Callback = function()
+			local tName = themeNameInput:Save().Text
+			if not tName or tName == "" then
+				tName = themeDropdown:Save().Selected
+			end
+			if tName and tName ~= "" then
+				local data = {}
+				for id, el in pairs(Window._themeElements) do
+					if not string.find(id, "~Configuration~") and not string.find(id, "~Theme Management~") and not string.find(id, "~UI Configuration~") then
+						local savedData = el.API:Save()
+						if savedData then
+							data[id] = savedData
 						end
 					end
-					data["SidebarWidth"] = currentSidebarWidth
-				
-					safeMakeFolder(Window.ThemeFolder)
-					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					safeWriteFile(path, HttpService:JSONEncode(data))
-					themeDropdown:SetOptions(getThemes())
-					themeDropdown:Set(tName)
-					Window:Notify({
-						Title = "Theme System",
-						Description = "Saved theme: " .. tName,
-						Duration = 3,
-						Icon = SETTINGS_ICON_ID
-					})
-				else
-					Window:Notify({Title = "Theme Error", Description = "Enter a theme name first.", Duration = 3})
 				end
-			end
-		})
-
-		ThemeSaveBlock:CreateButton({
-			Name = "Refresh List",
-			Callback = function()
+				data["SidebarWidth"] = currentSidebarWidth
+			
+				safeMakeFolder(Window.ThemeFolder)
+				local path = Window.ThemeFolder .. "/" .. tName .. ".json"
+				safeWriteFile(path, HttpService:JSONEncode(data))
 				themeDropdown:SetOptions(getThemes())
-				Window:Notify({Title = "Theme System", Description = "Theme list refreshed.", Duration = 2})
+				themeDropdown:Set(tName)
+				Window:Notify({
+					Title = "Theme System",
+					Description = "Saved theme: " .. tName,
+					Duration = 3,
+					Icon = SETTINGS_ICON_ID
+				})
+			else
+				Window:Notify({Title = "Theme Error", Description = "Enter a theme name first.", Duration = 3})
 			end
-		})
-	
-		ThemeSaveBlock:CreateButton({
-			Name = "Delete Theme",
-			Callback = function()
+		end
+	})
+
+	ThemeSaveBlock:CreateButton({
+		Name = "Refresh List",
+		Callback = function()
+			themeDropdown:SetOptions(getThemes())
+			Window:Notify({Title = "Theme System", Description = "Theme list refreshed.", Duration = 2})
+		end
+	})
+
+	ThemeSaveBlock:CreateButton({
+		Name = "Delete Theme",
+		Callback = function()
+			local tName = themeDropdown:Save().Selected
+			if tName and tName ~= "" then
+				local path = Window.ThemeFolder .. "/" .. tName .. ".json"
+				safeDelFile(path)
+				themeDropdown:SetOptions(getThemes())
+				themeDropdown:Set(nil)
+				Window:Notify({
+					Title = "Theme System",
+					Description = "Deleted theme: " .. tName,
+					Duration = 3,
+					Icon = SETTINGS_ICON_ID
+				})
+			end
+		end
+	})
+
+	local isInitThemeAutoLoad = true
+	ThemeSaveBlock:CreateToggle({
+		Name = "Auto-Load Selected Theme",
+		Default = (currentThemeAutoLoad ~= ""),
+		Callback = function(state)
+			if isInitThemeAutoLoad then return end
+			if state then
 				local tName = themeDropdown:Save().Selected
 				if tName and tName ~= "" then
-					local path = Window.ThemeFolder .. "/" .. tName .. ".json"
-					safeDelFile(path)
-					themeDropdown:SetOptions(getThemes())
-					themeDropdown:Set(nil)
-					Window:Notify({
-						Title = "Theme System",
-						Description = "Deleted theme: " .. tName,
-						Duration = 3,
-						Icon = SETTINGS_ICON_ID
-					})
-				end
-			end
-		})
-	
-		local isInitThemeAutoLoad = true
-		ThemeSaveBlock:CreateToggle({
-			Name = "Auto-Load Selected Theme",
-			Default = (currentThemeAutoLoad ~= ""),
-			Callback = function(state)
-				if isInitThemeAutoLoad then return end
-				if state then
-					local tName = themeDropdown:Save().Selected
-					if tName and tName ~= "" then
-						safeWriteFile(themeAutoLoadPath, tName)
-					else
-						Window:Notify({Title = "Error", Description = "Please select a theme first to auto-load.", Duration = 3})
-					end
+					safeWriteFile(themeAutoLoadPath, tName)
 				else
-					safeDelFile(themeAutoLoadPath)
+					Window:Notify({Title = "Error", Description = "Please select a theme first to auto-load.", Duration = 3})
 				end
+			else
+				safeDelFile(themeAutoLoadPath)
 			end
-		})
-		isInitThemeAutoLoad = false
-	
-		local function CreateThemeEditorBlock(name, sideName)
-			local blockContainer = Instance.new("Frame")
-			blockContainer.Name = name .. "_ThemeBlock"
-			blockContainer.Size = UDim2.new(1, 0, 0, 0)
-			blockContainer.AutomaticSize = Enum.AutomaticSize.Y
-			blockContainer.Parent = sideName == "Right" and themeEditorRight or themeEditorLeft
-			ApplyTheme(blockContainer, "Background", "BackgroundColor3")
-			ApplyTheme(blockContainer, "BackgroundTrans", "BackgroundTransparency")
-		
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = GLOBAL_CORNER
-			corner.Parent = blockContainer
-			CS:AddTag(corner, "ElementCorner")
-	
-			local blockStroke = Instance.new("UIStroke")
-			blockStroke.Name = "EditorOutlineStroke"
-			blockStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			blockStroke.Thickness = 1
-			blockStroke.Enabled = THEME.MainOutlineEnabled
-			blockStroke.Parent = blockContainer
-			ApplyTheme(blockStroke, "Outlines", "Color")
-			CS:AddTag(blockStroke, "EditorLeftOutlineBind")
-	
-			local blockPadding = Instance.new("UIPadding")
-			blockPadding.PaddingTop = UDim.new(0, 12)
-			blockPadding.PaddingBottom = UDim.new(0, 12)
-			blockPadding.PaddingLeft = UDim.new(0, 12)
-			blockPadding.PaddingRight = UDim.new(0, 12)
-			blockPadding.Parent = blockContainer
-	
-			local blockLayout = Instance.new("UIListLayout")
-			blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
-			blockLayout.Padding = UDim.new(0, 6)
-			blockLayout.Parent = blockContainer
-		
-			local title = Instance.new("TextLabel")
-			title.Size = UDim2.new(1, 0, 0, 20)
-			title.BackgroundTransparency = 1
-			title.TextSize = 13
-			title.TextTruncate = Enum.TextTruncate.AtEnd
-			title.TextXAlignment = Enum.TextXAlignment.Left
-			title.Text = name
-			title.Parent = blockContainer
-			ApplyTheme(title, "Text", "TextColor3")
-			ApplyTheme(title, "TextFont", "Font")
-		
-			local div = Instance.new("Frame")
-			div.Size = UDim2.new(1, 0, 0, 1)
-			div.BorderSizePixel = 0
-			div.Parent = blockContainer
-			ApplyTheme(div, "Outlines", "BackgroundColor3")
-	
-			local function updateThemeBlockStyle(style)
-				if style == 3 or style == 4 then
-					blockPadding.PaddingTop = UDim.new(0, 8)
-					blockPadding.PaddingBottom = UDim.new(0, 8)
-					blockPadding.PaddingLeft = UDim.new(0, 8)
-					blockPadding.PaddingRight = UDim.new(0, 8)
-					blockLayout.Padding = UDim.new(0, 4)
-					title.Size = UDim2.new(1, 0, 0, 16)
-				else
-					blockPadding.PaddingTop = UDim.new(0, 12)
-					blockPadding.PaddingBottom = UDim.new(0, 12)
-					blockPadding.PaddingLeft = UDim.new(0, 12)
-					blockPadding.PaddingRight = UDim.new(0, 12)
-					blockLayout.Padding = UDim.new(0, 6)
-					title.Size = UDim2.new(1, 0, 0, 20)
-				end
-			end
-			table.insert(Window._styleCallbacks, updateThemeBlockStyle)
-			updateThemeBlockStyle(THEME.ElementStyle)
-	
-			return BuildElementAPI(blockContainer, name, "", sideName, "SettingsTab", true)
 		end
+	})
+	isInitThemeAutoLoad = false
+
+	local function CreateThemeEditorBlock(name, sideName)
+		local blockContainer = Instance.new("Frame")
+		blockContainer.Name = name .. "_ThemeBlock"
+		blockContainer.Size = UDim2.new(1, 0, 0, 0)
+		blockContainer.AutomaticSize = Enum.AutomaticSize.Y
+		blockContainer.Parent = sideName == "Right" and themeEditorRight or themeEditorLeft
+		ApplyTheme(blockContainer, "Background", "BackgroundColor3")
+		ApplyTheme(blockContainer, "BackgroundTrans", "BackgroundTransparency")
 	
-		local colorsBlock = CreateThemeEditorBlock("Colors", "Left")
-		colorsBlock:CreateColorpicker({
-			Name = "Accent Color",
-			Default = THEME.Accent,
-		Callback = function(c) UpdateTheme("Accent",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Background",
-			Default = THEME.Background,
-		Callback = function(c) UpdateTheme("Background",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Sidebar",
-			Default = THEME.Sidebar,
-		Callback = function(c) UpdateTheme("Sidebar",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Cards & Panels",
-			Default = THEME.Card,
-		Callback = function(c) UpdateTheme("Card",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Elements",
-			Default = THEME.Element,
-		Callback = function(c) UpdateTheme("Element",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Inputs & Highlights",
-			Default = THEME.Input,
-		Callback = function(c) UpdateTheme("Input",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Outlines & Borders",
-			Default = THEME.Outlines,
-		Callback = function(c) UpdateTheme("Outlines",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Main Text",
-			Default = THEME.Text,
-		Callback = function(c) UpdateTheme("Text",
-			c) end
-		})
-		colorsBlock:CreateColorpicker({
-			Name = "Subtext",
-			Default = THEME.TextMuted,
-		Callback = function(c) UpdateTheme("TextMuted",
-			c) end
-		})
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = GLOBAL_CORNER
+		corner.Parent = blockContainer
+		CS:AddTag(corner, "ElementCorner")
+
+		local blockStroke = Instance.new("UIStroke")
+		blockStroke.Name = "EditorOutlineStroke"
+		blockStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		blockStroke.Thickness = 1
+		blockStroke.Enabled = THEME.MainOutlineEnabled
+		blockStroke.Parent = blockContainer
+		ApplyTheme(blockStroke, "Outlines", "Color")
+		CS:AddTag(blockStroke, "EditorLeftOutlineBind")
+
+		local blockPadding = Instance.new("UIPadding")
+		blockPadding.PaddingTop = UDim.new(0, 12)
+		blockPadding.PaddingBottom = UDim.new(0, 12)
+		blockPadding.PaddingLeft = UDim.new(0, 12)
+		blockPadding.PaddingRight = UDim.new(0, 12)
+		blockPadding.Parent = blockContainer
+
+		local blockLayout = Instance.new("UIListLayout")
+		blockLayout.FillDirection = Enum.FillDirection.Vertical
+		blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		blockLayout.Padding = UDim.new(0, 6)
+		blockLayout.Parent = blockContainer
 	
-		local transBlock = CreateThemeEditorBlock("Transparency", "Left")
-		transBlock:CreateSlider({
-			Name = "Background",
-			Min=0,
-			Max=100,
-			Step=1,
-			Default=0,
-			Callback=function(v) UpdateTheme("BackgroundTrans",
-			v/100) end
-		})
-		transBlock:CreateSlider({
-			Name = "Bg Image",
-			Min=0,
-			Max=100,
-			Step=1,
-			Default=100,
-			Callback=function(v) UpdateTheme("BgImageTrans",
-			v/100) end
-		})
-		transBlock:CreateSlider({
-			Name = "Cards & Panels",
-			Min=0,
-			Max=100,
-			Step=1,
-			Default=0,
-			Callback=function(v) UpdateTheme("CardTrans",
-			v/100) end
-		})
-		transBlock:CreateSlider({
-			Name = "Elements",
-			Min=0,
-			Max=100,
-			Step=1,
-			Default=0,
-			Callback=function(v) UpdateTheme("ElementTrans",
-			v/100) end
-		})
-		transBlock:CreateSlider({
-			Name = "Inputs",
-			Min=0,
-			Max=100,
-			Step=1,
-			Default=0,
-			Callback=function(v) UpdateTheme("InputTrans",
-			v/100) end
-		})
+		local title = Instance.new("TextLabel")
+		title.Size = UDim2.new(1, 0, 0, 20)
+		title.BackgroundTransparency = 1
+		title.TextSize = 13
+		title.TextTruncate = Enum.TextTruncate.AtEnd
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Text = name
+		title.Parent = blockContainer
+		ApplyTheme(title, "Text", "TextColor3")
+		ApplyTheme(title, "TextFont", "Font")
 	
-		local miscBlock = CreateThemeEditorBlock("Fonts & Extras", "Left")
-		miscBlock:CreateInput({
-			Name = "Bg Image ID",
-			Placeholder="rbxassetid://...",
-		Callback = function(t) UpdateTheme("BackgroundImage",
-			t) end
-		})
-		miscBlock:CreateDropdown({
-			Name = "Primary Font",
-			Options = FontsList,
-		Callback = function(v) UpdateTheme("TextFont",
-			v) end
-		})
-		miscBlock:CreateDropdown({
-			Name = "Subtext Font",
-			Options = FontsList,
-		Callback = function(v) UpdateTheme("SubtextFont",
-			v) end
-		})
-	
-		local layoutBlock = CreateThemeEditorBlock("Layout & Styles", "Right")
-		layoutBlock:CreateToggle({
-			Name = "Main GUI Outline",
-			Default = THEME.MainOutlineEnabled,
+		local div = Instance.new("Frame")
+		div.Size = UDim2.new(1, 0, 0, 1)
+		div.BorderSizePixel = 0
+		div.Parent = blockContainer
+		ApplyTheme(div, "Outlines", "BackgroundColor3")
+
+		local function updateThemeBlockStyle(style)
+			if style == 3 or style == 4 then
+				blockPadding.PaddingTop = UDim.new(0, 8)
+				blockPadding.PaddingBottom = UDim.new(0, 8)
+				blockPadding.PaddingLeft = UDim.new(0, 8)
+				blockPadding.PaddingRight = UDim.new(0, 8)
+				blockLayout.Padding = UDim.new(0, 4)
+				title.Size = UDim2.new(1, 0, 0, 16)
+			else
+				blockPadding.PaddingTop = UDim.new(0, 12)
+				blockPadding.PaddingBottom = UDim.new(0, 12)
+				blockPadding.PaddingLeft = UDim.new(0, 12)
+				blockPadding.PaddingRight = UDim.new(0, 12)
+				blockLayout.Padding = UDim.new(0, 6)
+				title.Size = UDim2.new(1, 0, 0, 20)
+			end
+		end
+		table.insert(Window._styleCallbacks, updateThemeBlockStyle)
+		updateThemeBlockStyle(THEME.ElementStyle)
+
+		return BuildElementAPI(blockContainer, name, "", sideName, "SettingsTab", true)
+	end
+
+	local colorsBlock = CreateThemeEditorBlock("Colors", "Left")
+	colorsBlock:CreateColorpicker({
+		Name = "Accent Color",
+		Default = THEME.Accent,
+		Callback = function(c) UpdateTheme("Accent", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Background",
+		Default = THEME.Background,
+		Callback = function(c) UpdateTheme("Background", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Sidebar",
+		Default = THEME.Sidebar,
+		Callback = function(c) UpdateTheme("Sidebar", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Cards & Panels",
+		Default = THEME.Card,
+		Callback = function(c) UpdateTheme("Card", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Elements",
+		Default = THEME.Element,
+		Callback = function(c) UpdateTheme("Element", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Inputs & Highlights",
+		Default = THEME.Input,
+		Callback = function(c) UpdateTheme("Input", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Outlines & Borders",
+		Default = THEME.Outlines,
+		Callback = function(c) UpdateTheme("Outlines", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Main Text",
+		Default = THEME.Text,
+		Callback = function(c) UpdateTheme("Text", c) end
+	})
+	colorsBlock:CreateColorpicker({
+		Name = "Subtext",
+		Default = THEME.TextMuted,
+		Callback = function(c) UpdateTheme("TextMuted", c) end
+	})
+
+	local transBlock = CreateThemeEditorBlock("Transparency", "Left")
+	transBlock:CreateSlider({
+		Name = "Background",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.BackgroundTrans * 100),
+		Callback = function(v) UpdateTheme("BackgroundTrans", v/100) end
+	})
+	transBlock:CreateSlider({
+		Name = "Bg Image",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.BgImageTrans * 100),
+		Callback = function(v) UpdateTheme("BgImageTrans", v/100) end
+	})
+	transBlock:CreateSlider({
+		Name = "Cards & Panels",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.CardTrans * 100),
+		Callback = function(v) UpdateTheme("CardTrans", v/100) end
+	})
+	transBlock:CreateSlider({
+		Name = "Elements",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.ElementTrans * 100),
+		Callback = function(v) UpdateTheme("ElementTrans", v/100) end
+	})
+	transBlock:CreateSlider({
+		Name = "Inputs",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.InputTrans * 100),
+		Callback = function(v) UpdateTheme("InputTrans", v/100) end
+	})
+
+	local miscBlock = CreateThemeEditorBlock("Fonts & Extras", "Left")
+	miscBlock:CreateInput({
+		Name = "Bg Image ID",
+		Placeholder = "rbxassetid://...",
+		Default = THEME.BackgroundImage or "",
+		Callback = function(t) UpdateTheme("BackgroundImage", t) end
+	})
+	miscBlock:CreateDropdown({
+		Name = "Primary Font",
+		Options = FontsList,
+		Default = THEME.TextFont,
+		Callback = function(v) UpdateTheme("TextFont", v) end
+	})
+	miscBlock:CreateDropdown({
+		Name = "Subtext Font",
+		Options = FontsList,
+		Default = THEME.SubtextFont,
+		Callback = function(v) UpdateTheme("SubtextFont", v) end
+	})
+
+	local elCornerRadiusNum = customTheme.ElementsCornerRadius or config.ElementsCornerRadius or cornerRadiusNum
+
+	local layoutBlock = CreateThemeEditorBlock("Layout & Styles", "Right")
+	layoutBlock:CreateToggle({
+		Name = "Main GUI Outline",
+		Default = THEME.MainOutlineEnabled,
 		Callback = function(s)
 			THEME.MainOutlineEnabled = s
 			mainOutlineStroke.Enabled = s 
@@ -7163,7 +7096,8 @@ function Library.CreateWindow(arg1, arg2)
 			for _, ls in ipairs(CS:GetTagged("EditorLeftOutlineBind")) do
 				ls.Enabled = s
 			end
-	end})
+		end
+	})
 	layoutBlock:CreateDropdown({
 		Name = "Internal Outlines",
 		Options = {"Off", "Only Blocks", "Only Elements", "All"},
@@ -7174,69 +7108,74 @@ function Library.CreateWindow(arg1, arg2)
 			local showElems = (opt == "Only Elements" or opt == "All")
 			for _, stroke in ipairs(CS:GetTagged("BlockStroke")) do stroke.Enabled = showBlocks end
 			for _, stroke in ipairs(CS:GetTagged("ElementStroke")) do stroke.Enabled = showElems end
-	end})
+		end
+	})
 	layoutBlock:CreateDropdown({
 		Name = "GUI Style",
 		Options = {"Style 1", "Style 2", "Style 3", "Style 4"},
-		Default = "Style 1",
+		Default = "Style " .. tostring(THEME.ElementStyle or 1),
 		Callback = function(opt)
 			THEME.ElementStyle = tonumber(opt:match("%d+")) or 1
 			for _, cb in ipairs(Window._styleCallbacks) do
 				cb(THEME.ElementStyle)
 			end
 			FullUpdateLayout()
-	end})
+		end
+	})
 	layoutBlock:CreateDropdown({
 		Name = "Close Animation",
 		Options = {"Fade Slide Down", "Fade Slide Up", "Zoom Fade", "Slide Right"},
 		Default = (THEME.CloseAnimation == 2 and "Fade Slide Up") or (THEME.CloseAnimation == 3 and "Zoom Fade") or (THEME.CloseAnimation == 4 and "Slide Right") or "Fade Slide Down",
 		Callback = function(opt)
-				if opt == "Fade Slide Up" then
-					THEME.CloseAnimation = 2
-				elseif opt == "Zoom Fade" then
-					THEME.CloseAnimation = 3
-				elseif opt == "Slide Right" then
-					THEME.CloseAnimation = 4
-				else
-					THEME.CloseAnimation = 1
-				end
+			if opt == "Fade Slide Up" then
+				THEME.CloseAnimation = 2
+			elseif opt == "Zoom Fade" then
+				THEME.CloseAnimation = 3
+			elseif opt == "Slide Right" then
+				THEME.CloseAnimation = 4
+			else
+				THEME.CloseAnimation = 1
 			end
-		})
-		layoutBlock:CreateToggle({
-			Name = "Show Watermark",
-			Default = watermarkEnabled,
+		end
+	})
+	layoutBlock:CreateToggle({
+		Name = "Show Watermark",
+		Default = watermarkEnabled,
 		Callback = function(s)
-				watermarkHolder.Visible = s
-			end
-		})
-		layoutBlock:CreateToggle({
-			Name = "Show Keybinds HUD",
-			Default = (config.Keybinds ~= false and config.KeybindsMenu ~= false),
+			watermarkHolder.Visible = s
+		end
+	})
+	layoutBlock:CreateToggle({
+		Name = "Show Keybinds HUD",
+		Default = (config.Keybinds ~= false and config.KeybindsMenu ~= false),
 		Callback = function(s)
-				if Window.Keybinds then
-					Window.Keybinds:SetVisible(s)
-				end
+			if Window.Keybinds then
+				Window.Keybinds:SetVisible(s)
 			end
-		})
-		layoutBlock:CreateDropdown({
-			Name = "Topbar Elements Pos",
-			Options = {"Right", "Left"},
-			Default = "Right",
+		end
+	})
+	layoutBlock:CreateDropdown({
+		Name = "Topbar Elements Pos",
+		Options = {"Right", "Left"},
+		Default = THEME.TopbarAlign or "Right",
 		Callback = function(opt)
 			UpdateTopbarAlign(opt)
-	end})
+		end
+	})
 	layoutBlock:CreateToggle({
 		Name = "Show Search Bar",
-		Default = true,
+		Default = (customTheme.ShowSearchBar ~= nil and customTheme.ShowSearchBar) or (config.ShowSearchBar ~= nil and config.ShowSearchBar) or true,
 		Callback = function(s)
 			searchContainer.Visible = s 
-	end})
+		end
+	})
 	layoutBlock:CreateToggle({
 		Name = "Show Profile",
-		Default = true,
+		Default = (customTheme.ShowProfile ~= nil and customTheme.ShowProfile) or (config.ShowProfile ~= nil and config.ShowProfile) or true,
 		Callback = function(s)
 			profileBlock.Visible = s 
-	end})
+		end
+	})
 	layoutBlock:CreateToggle({
 		Name = "Drop Shadows",
 		Default = SIDEBAR_STATE.ShadowsEnabled,
@@ -7254,7 +7193,8 @@ function Library.CreateWindow(arg1, arg2)
 				local stroke = shadow:FindFirstChild("ShadowStroke")
 				if stroke then stroke.Enabled = (s and SIDEBAR_STATE.Detached) end
 			end
-	end})
+		end
+	})
 	layoutBlock:CreateSlider({
 		Name = "Main Corner Radius",
 		Min = 0,
@@ -7265,16 +7205,18 @@ function Library.CreateWindow(arg1, arg2)
 			cornerRadiusNum = v
 			for _, corner in ipairs(CS:GetTagged("MainCorner")) do corner.CornerRadius = UDim.new(0, v) end
 			FullUpdateLayout()
-	end})
+		end
+	})
 	layoutBlock:CreateSlider({
 		Name = "Elements Corner Radius",
 		Min = 0,
 		Max = 30,
 		Step = 1,
-		Default = cornerRadiusNum,
+		Default = elCornerRadiusNum,
 		Callback = function(v)
 			for _, corner in ipairs(CS:GetTagged("ElementCorner")) do corner.CornerRadius = UDim.new(0, v) end
-	end})
+		end
+	})
 	layoutBlock:CreateSlider({
 		Name = "HUD Corner Radius",
 		Min = 0,
@@ -7284,29 +7226,33 @@ function Library.CreateWindow(arg1, arg2)
 		Callback = function(v)
 			hudCornerRadiusNum = v
 			for _, corner in ipairs(CS:GetTagged("HUDCorner")) do corner.CornerRadius = UDim.new(0, v) end
-	end})
+		end
+	})
 	layoutBlock:CreateDropdown({
 		Name = "Sidebar Position",
 		Options = {"Left", "Right", "Top", "Bottom"},
-		Default = "Left",
+		Default = SIDEBAR_STATE.Position or "Left",
 		Callback = function(opt)
 			SIDEBAR_STATE.Position = opt
 			FullUpdateLayout()
-	end})
+		end
+	})
 	layoutBlock:CreateToggle({
 		Name = "Detached Sidebar",
-		Default = false,
+		Default = SIDEBAR_STATE.Detached or false,
 		Callback = function(s)
 			SIDEBAR_STATE.Detached = s
 			FullUpdateLayout()
-	end})
+		end
+	})
 	layoutBlock:CreateDropdown({
 		Name = "Toggle Checkbox Pos",
 		Options = {"Right", "Left"},
-		Default = "Right",
+		Default = THEME.TogglePosition or "Right",
 		Callback = function(opt)
 			UpdateTogglePosition(opt)
-	end})
+		end
+	})
 	
 	local configBlock = Window.SettingsTab:CreateBlock({
 		Name = "Configuration",
@@ -7563,4 +7509,5 @@ function Library.CreateWindow(arg1, arg2)
 
 	return Window
 end
+
 return Library
