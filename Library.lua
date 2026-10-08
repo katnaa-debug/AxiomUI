@@ -5089,6 +5089,7 @@ function Library.CreateWindow(arg1, arg2)
 			container.Size = UDim2.new(1, 0, 0, 24)
 			container.BackgroundTransparency = 1
 			container.BorderSizePixel = 0
+			container.ClipsDescendants = true
 			container.LayoutOrder = 2
 			container.Parent = blockContainer
 
@@ -5104,17 +5105,29 @@ function Library.CreateWindow(arg1, arg2)
 
 			local label, leftLine, rightLine
 			local function updateLines()
-				if not label then return end
+				if not label or not container then return end
+				local totalW = container.AbsoluteSize.X
+				if totalW <= 0 then return end
+
 				local textWidth = label.AbsoluteSize.X
-				local offset = (textWidth / 2) + 8 
-				if leftLine then leftLine.Size = UDim2.new(0.5, -offset, 0, 1) end
-				if rightLine then rightLine.Size = UDim2.new(0.5, -offset, 0, 1) end
+				local gap = 8
+				local sidePad = 4
+				local lineW = math.max(0, (totalW / 2) - (textWidth / 2) - gap - sidePad)
+
+				if leftLine then
+					leftLine.Size = UDim2.new(0, lineW, 0, 1)
+					leftLine.Position = UDim2.new(0.5, -((textWidth / 2) + gap), 0.5, 0)
+				end
+				if rightLine then
+					rightLine.Size = UDim2.new(0, lineW, 0, 1)
+					rightLine.Position = UDim2.new(0.5, ((textWidth / 2) + gap), 0.5, 0)
+				end
 			end
 
 			if not hasText then
 				local line = Instance.new("Frame")
 				line.Name = "SectionLine"
-				line.Size = UDim2.new(1, 0, 0, 1)
+				line.Size = UDim2.new(1, -8, 0, 1)
 				line.Position = UDim2.new(0.5, 0, 0.5, 0)
 				line.AnchorPoint = Vector2.new(0.5, 0.5)
 				line.BorderSizePixel = 0
@@ -5139,23 +5152,20 @@ function Library.CreateWindow(arg1, arg2)
 
 				leftLine = Instance.new("Frame")
 				leftLine.Name = "LeftLine"
-				leftLine.Size = UDim2.new(0.5, -5, 0, 1)
-				leftLine.Position = UDim2.new(0, 0, 0.5, 0)
-				leftLine.AnchorPoint = Vector2.new(0.5, 0.5)
+				leftLine.AnchorPoint = Vector2.new(1, 0.5)
 				leftLine.BorderSizePixel = 0
 				leftLine.Parent = container
 				ApplyTheme(leftLine, "Outlines", "BackgroundColor3")
 
 				rightLine = Instance.new("Frame")
 				rightLine.Name = "RightLine"
-				rightLine.Size = UDim2.new(0.5, -5, 0, 1)
-				rightLine.Position = UDim2.new(1, 0, 0.5, 0)
-				rightLine.AnchorPoint = Vector2.new(1, 0.5)
+				rightLine.AnchorPoint = Vector2.new(0, 0.5)
 				rightLine.BorderSizePixel = 0
 				rightLine.Parent = container
 				ApplyTheme(rightLine, "Outlines", "BackgroundColor3")
 				
 				table.insert(Window._connections, label:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLines))
+				table.insert(Window._connections, container:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateLines))
 				task.spawn(function()
 					task.wait()
 					updateLines()
@@ -5167,7 +5177,7 @@ function Library.CreateWindow(arg1, arg2)
 			function api:SetText(txt)
 				if label then 
 					label.Text = txt
-					updateLines()
+					task.spawn(updateLines)
 				end
 			end
 			return api
@@ -5538,6 +5548,7 @@ function Library.CreateWindow(arg1, arg2)
 	
 			if prevTab then
 				TS:Create(prevTab.Stroke, TweenInfo.new(0.3), {Transparency = 1}):Play()
+				ApplyTheme(prevTab.Stroke, "Outlines", "Color")
 				
 				ApplyTheme(prevTab.Label, "TextMuted", "TextColor3")
 				if prevTab.Icon then ApplyTheme(prevTab.Icon, "TextMuted", "ImageColor3") end
@@ -5554,10 +5565,11 @@ function Library.CreateWindow(arg1, arg2)
 			end
 	
 			TS:Create(tabStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+			ApplyTheme(tabStroke, "Accent", "Color")
 			
 			ApplyTheme(tabBtnTitle, "Text", "TextColor3")
-			if tabIconLabel then ApplyTheme(tabIconLabel, "Text", "ImageColor3") end
-			if tabLetterLabel then ApplyTheme(tabLetterLabel, "Text", "TextColor3") end
+			if tabIconLabel then ApplyTheme(tabIconLabel, "Accent", "ImageColor3") end
+			if tabLetterLabel then ApplyTheme(tabLetterLabel, "Accent", "TextColor3") end
 			
 			if not isTopOrBottom and not collapsedNow then 
 				TS:Create(tabBtnPadding, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {PaddingLeft = UDim.new(0, 22)}):Play() 
