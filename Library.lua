@@ -152,6 +152,7 @@ local THEME = {
 	TextMuted = Color3.fromRGB(145, 142, 165),
 	CloseBtn = Color3.fromRGB(255, 87, 87),
 	BackgroundTrans = 0,
+	HUDTransparency = 0,
 	BgImageTrans = 1,
 	CardTrans = 0,
 	ElementTrans = 0,
@@ -286,6 +287,16 @@ local shortKeys = {
 	KeypadSeven = "Num7", KeypadEight = "Num8", KeypadNine = "Num9"
 }
 
+local function resolveKeycode(value)
+	if value == false then return Enum.KeyCode.Unknown end
+	if typeof(value) == "EnumItem" and value.EnumType == Enum.KeyCode then return value end
+	if type(value) == "string" then
+		local name = value:match("^Enum%.KeyCode%.(.+)$") or value
+		return Enum.KeyCode[name]
+	end
+	return nil
+end
+
 local function getShortKey(keyObj)
 	if type(keyObj) == "string" then return keyObj end
 	if not keyObj or keyObj == Enum.KeyCode.Unknown then return "None" end
@@ -307,13 +318,28 @@ function Library.CreateWindow(arg1, arg2)
 	local configFolder = config.ConfigFolder or "AxiomConfigs"
 	local watermarkEnabled = (config.Watermark == true) or (config.Watermark == nil and true)
 	
-	local customTheme = config.Theme or {}
-	for k, v in pairs(customTheme) do
-		if THEME[k] ~= nil then 
-			THEME[k] = v
-		end
+	local customTheme = type(config.Theme) == "table" and config.Theme or {}
+	local function getSetting(key, fallback)
+		if customTheme[key] ~= nil then return customTheme[key] end
+		if config[key] ~= nil then return config[key] end
+		return fallback
 	end
-	
+	for k in pairs(THEME) do
+		local v = getSetting(k)
+		if v ~= nil then THEME[k] = v end
+	end
+	THEME.HUDTransparency = math.clamp(tonumber(THEME.HUDTransparency) or 0, 0, 1)
+	local openKeybind = resolveKeycode(getSetting("OpenKeybind")) or Enum.KeyCode.RightShift
+	watermarkEnabled = getSetting("ShowWatermark", config.Watermark ~= false)
+	local showSearchBar = getSetting("ShowSearchBar", true)
+	local showProfile = getSetting("ShowProfile", true)
+	local keybindsEnabled = getSetting("ShowKeybindsHUD", nil)
+	if keybindsEnabled == nil then
+		if config.Keybinds ~= nil then keybindsEnabled = config.Keybinds
+		elseif config.KeybindsMenu ~= nil then keybindsEnabled = config.KeybindsMenu
+		elseif config.KeybindsHUD ~= nil then keybindsEnabled = config.KeybindsHUD
+		else keybindsEnabled = true end
+	end
 	local cornerRadiusNum = customTheme.CornerRadius or config.CornerRadius or 20
 	local hudCornerRadiusNum = customTheme.HUDCornerRadius or config.HUDCornerRadius or 10
 	local GLOBAL_CORNER = UDim.new(0, cornerRadiusNum)
@@ -336,6 +362,7 @@ function Library.CreateWindow(arg1, arg2)
 		_searchRegistry = {},
 		_configElements = {},
 		_themeElements = {},
+		_themeControls = {},
 		ConfigFolder = configFolder,
 		ThemeFolder = "AxiomUIThemes"
 	}
@@ -401,16 +428,15 @@ function Library.CreateWindow(arg1, arg2)
 			notifWrapper.LayoutOrder = notifCount
 		end
 
-		local notif = Instance.new("CanvasGroup")
+		local notif = Instance.new("Frame")
 		notif.Name = "Notification"
 		notif.Size = UDim2.new(1, 0, 0, 0)
 		notif.AutomaticSize = Enum.AutomaticSize.Y
 		notif.BackgroundTransparency = 1
-		notif.GroupTransparency = 1
 		notif.Parent = notifWrapper
 		
 		ApplyTheme(notif, "Background", "BackgroundColor3")
-		ApplyTheme(notif, "BackgroundTrans", "BackgroundTransparency")
+		ApplyTheme(notif, "HUDTransparency", "BackgroundTransparency")
 		
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, hudCornerRadiusNum)
@@ -574,8 +600,9 @@ function Library.CreateWindow(arg1, arg2)
 
 		notif.Position = isNotifLeft and UDim2.new(0, -350, 0, 0) or UDim2.new(0, 350, 0, 0)
 		
+		notif.BackgroundTransparency = 1
 		TS:Create(notif, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-			GroupTransparency = 0,
+			BackgroundTransparency = THEME.HUDTransparency,
 			Position = UDim2.new(0, 0, 0, 0)
 		}):Play()
 
@@ -603,7 +630,7 @@ function Library.CreateWindow(arg1, arg2)
 		
 		local function closeNotification()
 			local fadeOut = TS:Create(notif, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-				GroupTransparency = 1,
+				BackgroundTransparency = 1,
 				Position = isNotifLeft and UDim2.new(0, -350, 0, 0) or UDim2.new(0, 350, 0, 0)
 			})
 			fadeOut:Play()
@@ -790,7 +817,7 @@ function Library.CreateWindow(arg1, arg2)
 
 	local SIDEBAR_STATE = {
 		Position = customTheme.SidebarPosition or config.SidebarPosition or "Left",
-		Detached = (customTheme.DetachedSidebar ~= nil and customTheme.DetachedSidebar) or (config.DetachedSidebar ~= nil and config.DetachedSidebar) or false,
+		Detached = getSetting("DetachedSidebar", false),
 		ShadowsEnabled = initShadows
 	}
 
@@ -1153,11 +1180,8 @@ function Library.CreateWindow(arg1, arg2)
 				Window.ActivePopupClose()
 				Window.ActivePopupClose = nil
 			else
-				TS:Create(p, TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {GroupTransparency = 1}):Play()
-				task.delay(0.18, function()
-					p.Visible = false
-					if not Window.ActivePopup then Window.Overlay.Visible = false end
-				end)
+				p.Visible = false
+				if not Window.ActivePopup then Window.Overlay.Visible = false end
 			end
 		end
 	end
@@ -1166,16 +1190,15 @@ function Library.CreateWindow(arg1, arg2)
 
 	local MIN_SIDEBAR_WIDTH = isMobile and 48 or 58 
 	local MAX_SIDEBAR_WIDTH = isMobile and 150 or 210
-	local currentSidebarWidth = customTheme.SidebarWidth or (isInitiallyCollapsed and MIN_SIDEBAR_WIDTH or MAX_SIDEBAR_WIDTH)
+	local currentSidebarWidth = getSetting("SidebarWidth", isInitiallyCollapsed and MIN_SIDEBAR_WIDTH or MAX_SIDEBAR_WIDTH)
 	local savedSidebarWidth = currentSidebarWidth
 
-	local sidebarVisuals = Instance.new("CanvasGroup")
+	local sidebarVisuals = Instance.new("Frame")
 	sidebarVisuals.Name = "SidebarVisuals"
 	sidebarVisuals.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebarVisuals.BorderSizePixel = 0
 	sidebarVisuals.ZIndex = 3 
 	sidebarVisuals.BackgroundTransparency = 1 
-	sidebarVisuals.GroupTransparency = 0
 	sidebarVisuals.Parent = main
 	
 	local svCorner = Instance.new("UICorner")
@@ -1216,12 +1239,11 @@ function Library.CreateWindow(arg1, arg2)
 	ApplyTheme(sidebarFiller, "Sidebar", "BackgroundColor3")
 	ApplyTheme(sidebarFiller, "BackgroundTrans", "BackgroundTransparency")
 
-	local sidebar = Instance.new("CanvasGroup")
+	local sidebar = Instance.new("Frame")
 	sidebar.Name = "Sidebar"
 	sidebar.Size = UDim2.new(0, currentSidebarWidth, 1, 0)
 	sidebar.BorderSizePixel = 0
 	sidebar.BackgroundTransparency = 1
-	sidebar.GroupTransparency = 0
 	sidebar.ZIndex = 5
 	sidebar.Parent = main
 	
@@ -2126,6 +2148,10 @@ function Library.CreateWindow(arg1, arg2)
 	local function updateSidebarWidth(newWidth)
 		currentSidebarWidth = math.clamp(newWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH)
 		savedSidebarWidth = currentSidebarWidth
+		local bound = Window._themeControls["Layout & Styles~Sidebar Width"]
+		if bound and bound.API:Save().Value ~= currentSidebarWidth then
+			bound.API:Set(currentSidebarWidth)
+		end
 		FullUpdateLayout()
 	end
 
@@ -2175,7 +2201,8 @@ function Library.CreateWindow(arg1, arg2)
 	end))
 
 	local isDestroyed, isUIOpen = false, true
-	local animInfo = TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+	local animInfo = TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+	local currentActiveTween = nil
 
 	local function getAnimHideTransform(animType)
 		if animType == 2 then
@@ -2190,6 +2217,11 @@ function Library.CreateWindow(arg1, arg2)
 	end
 
 	local function PlayFadeAnim(show)
+		if currentActiveTween then
+			currentActiveTween:Cancel()
+			currentActiveTween = nil
+		end
+
 		local aType = THEME.CloseAnimation or 1
 		local hidePos, hideSize = getAnimHideTransform(aType)
 		
@@ -2198,10 +2230,11 @@ function Library.CreateWindow(arg1, arg2)
 			contentWrapper.Position = hidePos
 			contentWrapper.Size = hideSize
 			
-			TS:Create(contentWrapper, animInfo, {
+			currentActiveTween = TS:Create(contentWrapper, animInfo, {
 				Position = UDim2.new(0, 0, 0, 0),
 				Size = UDim2.new(1, 0, 1, 0)
-			}):Play()
+			})
+			currentActiveTween:Play()
 			
 			TS:Create(main, animInfo, {GroupTransparency = 0}):Play()
 			
@@ -2218,7 +2251,7 @@ function Library.CreateWindow(arg1, arg2)
 					local stroke = shadow:FindFirstChild("ShadowStroke")
 					if stroke then 
 						stroke.Enabled = true
-						TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() 
+						TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency") or 0.8}):Play() 
 					end
 				end
 				if SIDEBAR_STATE.Detached then
@@ -2226,29 +2259,23 @@ function Library.CreateWindow(arg1, arg2)
 						local stroke = shadow:FindFirstChild("ShadowStroke")
 						if stroke then 
 							stroke.Enabled = true
-							TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency")}):Play() 
+							TS:Create(stroke, animInfo, {Transparency = stroke:GetAttribute("TargetTransparency") or 0.8}):Play() 
 						end
 					end
 				end
 			end
 			TS:Create(arcOuterStroke, animInfo, {Transparency = 0}):Play()
-			TS:Create(topCap, animInfo, {BackgroundTransparency = 0}):Play()
-			TS:Create(leftCap, animInfo, {BackgroundTransparency = 0}):Play()
 			TS:Create(topbarDivider, animInfo, {BackgroundTransparency = 0}):Play()
 			TS:Create(sidebarDivider, animInfo, {BackgroundTransparency = 0}):Play()
 			
-			if SIDEBAR_STATE.Detached then 
-				TS:Create(sidebar, animInfo, {GroupTransparency = 0}):Play()
-				TS:Create(sidebarVisuals, animInfo, {GroupTransparency = THEME.BackgroundTrans}):Play()
-			end
 		else
 			Window.ClosePopup()
 			
-			local hideMain = TS:Create(contentWrapper, animInfo, {
+			currentActiveTween = TS:Create(contentWrapper, animInfo, {
 				Position = hidePos,
 				Size = hideSize
 			})
-			hideMain:Play()
+			currentActiveTween:Play()
 			
 			TS:Create(main, animInfo, {GroupTransparency = 1}):Play()
 			TS:Create(mainOutlineStroke, animInfo, {Transparency = 1}):Play()
@@ -2265,17 +2292,16 @@ function Library.CreateWindow(arg1, arg2)
 				if stroke then TS:Create(stroke, animInfo, {Transparency = 1}):Play() end
 			end
 			TS:Create(arcOuterStroke, animInfo, {Transparency = 1}):Play()
-			TS:Create(topCap, animInfo, {BackgroundTransparency = 1}):Play()
-			TS:Create(leftCap, animInfo, {BackgroundTransparency = 1}):Play()
 			TS:Create(topbarDivider, animInfo, {BackgroundTransparency = 1}):Play()
 			TS:Create(sidebarDivider, animInfo, {BackgroundTransparency = 1}):Play()
 			
-			if SIDEBAR_STATE.Detached then 
-				TS:Create(sidebar, animInfo, {GroupTransparency = 1}):Play()
-				TS:Create(sidebarVisuals, animInfo, {GroupTransparency = 1}):Play()
-			end
 			
-			return hideMain
+			local animRef = currentActiveTween
+			animRef.Completed:Connect(function()
+				if not isUIOpen and currentActiveTween == animRef then
+					wrapper.Visible = false
+				end
+			end)
 		end
 	end
 
@@ -2353,28 +2379,14 @@ function Library.CreateWindow(arg1, arg2)
 		table.insert(Window._connections, mobileToggleUI.Activated:Connect(function()
 			if mtMoved then return end
 			isUIOpen = not isUIOpen
-			if isUIOpen then
-				PlayFadeAnim(true)
-			else
-				PlayFadeAnim(false)
-				task.delay(0.35, function()
-					if not isUIOpen then wrapper.Visible = false end
-				end)
-			end
+			PlayFadeAnim(isUIOpen)
 		end))
 	end
 
 	table.insert(Window._connections, UIS.InputBegan:Connect(function(input, gameProcessed)
-		if input.KeyCode == Enum.KeyCode.RightShift and not UIS:GetFocusedTextBox() then
+		if not Window._capturingOpenKeybind and input.KeyCode == openKeybind and not UIS:GetFocusedTextBox() then
 			isUIOpen = not isUIOpen
-			if isUIOpen then
-				PlayFadeAnim(true)
-			else
-				local hideAnim = PlayFadeAnim(false)
-				table.insert(Window._connections, hideAnim.Completed:Connect(function()
-					if not isUIOpen then wrapper.Visible = false end
-				end))
-			end
+			PlayFadeAnim(isUIOpen)
 		end
 	end))
 
@@ -2479,6 +2491,7 @@ function Library.CreateWindow(arg1, arg2)
 			local uniqueId = tabName .. "~" .. bName .. "~" .. elName
 			if isSettings then
 				Window._themeElements[uniqueId] = { Type = type, API = api }
+				Window._themeControls[bName .. "~" .. elName] = { Type = type, API = api }
 				return
 			end
 			Window._configElements[uniqueId] = { Type = type, API = api }
@@ -2771,9 +2784,15 @@ function Library.CreateWindow(arg1, arg2)
 			table.insert(Window._connections, gInput.FocusLost:Connect(onRGBFocusLost))
 			table.insert(Window._connections, bInput.FocusLost:Connect(onRGBFocusLost))
 
+			local popupTween
+			local popupStrokeTween
+			local popupFadeToken = 0
 			table.insert(Window._connections, previewBox.MouseButton1Click:Connect(function()
 				if Window.ActivePopup == popup then return Window.ClosePopup() end
 				Window.ClosePopup()
+				popupFadeToken = popupFadeToken + 1
+				if popupTween then popupTween:Cancel() end
+				if popupStrokeTween then popupStrokeTween:Cancel() end
 				local absX = previewBox.AbsolutePosition.X - Window.Overlay.AbsolutePosition.X + previewBox.AbsoluteSize.X + 10
 				local absY = previewBox.AbsolutePosition.Y - Window.Overlay.AbsolutePosition.Y
 				popup.Parent = Window.Overlay
@@ -2781,21 +2800,33 @@ function Library.CreateWindow(arg1, arg2)
 				Window.Overlay.Visible = true
 				Window.ActivePopup = popup
 				popup.Size = UDim2.new(0, 180 * 0.9, 0, 244 * 0.9)
+				popup.GroupTransparency = 1
 				popup.Visible = true
 				if popupStroke then popupStroke.Transparency = 0 end
 				Window.ActivePopupClose = function()
+					popupFadeToken = popupFadeToken + 1
+					local token = popupFadeToken
+					if popupTween then popupTween:Cancel() end
 					local fadeInfo = TweenInfo.new(0.18, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-					TS:Create(popup, fadeInfo, {GroupTransparency = 1}):Play()
-					if popupStroke then TS:Create(popupStroke, fadeInfo, {Transparency = 1}):Play() end
-					task.delay(0.18, function()
+					popupTween = TS:Create(popup, fadeInfo, {GroupTransparency = 1})
+					popupTween:Play()
+					if popupStroke then
+						if popupStrokeTween then popupStrokeTween:Cancel() end
+						popupStrokeTween = TS:Create(popupStroke, fadeInfo, {Transparency = 1})
+						popupStrokeTween:Play()
+					end
+					local closeTween = popupTween
+					closeTween.Completed:Once(function(playbackState)
+						if playbackState ~= Enum.PlaybackState.Completed or token ~= popupFadeToken then return end
 						popup.Visible = false
 						if not Window.ActivePopup then Window.Overlay.Visible = false end
 					end)
 				end
-				TS:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+				popupTween = TS:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 					GroupTransparency = 0,
 					Size = UDim2.new(0, 180, 0, 244)
-				}):Play()
+				})
+				popupTween:Play()
 			end))
 
 			local draggingSV = false
@@ -2931,11 +2962,10 @@ function Library.CreateWindow(arg1, arg2)
 			ApplyTheme(selectedText, "Text", "TextColor3")
 			ApplyTheme(selectedText, "TextFont", "Font")
 
-			local dropPopup = Instance.new("CanvasGroup")
+			local dropPopup = Instance.new("Frame")
 			dropPopup.Name = "DropdownPopup"
 			dropPopup.BorderSizePixel = 0
 			dropPopup.AnchorPoint = Vector2.new(0, 0)
-			dropPopup.GroupTransparency = 0
 			dropPopup.Visible = false
 			dropPopup.ClipsDescendants = true
 			dropPopup.ZIndex = 100000 
@@ -3237,7 +3267,6 @@ function Library.CreateWindow(arg1, arg2)
 				end
 
 				dropPopup.Size = UDim2.new(0, boxW, 0, boxH)
-				dropPopup.GroupTransparency = 0
 				dropPopup.Visible = true
 				
 				selectedBox.BackgroundTransparency = 1
@@ -3324,15 +3353,19 @@ function Library.CreateWindow(arg1, arg2)
 						end
 					end
 					local txt = #selectedItems > 0 and table.concat(selectedItems, ", ") or "Select..."
-					selectedText.Text = txt
-					headerText.Text = txt
-					updateVisuals()
-					callback(selectedItems)
+					if selectedText.Text ~= txt then
+						selectedText.Text = txt
+						headerText.Text = txt
+						if dropPopup.Visible then updateVisuals() end
+						callback(selectedItems)
+					end
 				else
+					if selectedItem == newSelection then return end
 					if table.find(options, newSelection) then
 						selectedItem = newSelection
 						selectedText.Text = newSelection
 						headerText.Text = newSelection
+						if dropPopup.Visible then updateVisuals() end
 						callback(newSelection)
 					end
 				end
@@ -4549,7 +4582,15 @@ function Library.CreateWindow(arg1, arg2)
 			function api:Set(newState)
 				if state == newState then return end
 				state = newState
-				updateToggle()
+				if state then
+					ApplyTheme(toggleStroke, "Accent", "Color")
+					fill.Size = UDim2.new(1, -10, 1, -10)
+				else
+					ApplyTheme(toggleStroke, "Outlines", "Color")
+					fill.Size = UDim2.new(0, 0, 0, 0)
+				end
+				fireCallback()
+				if Window.UpdateKeybinds then Window.UpdateKeybinds() end
 			end
 			function api:SetColor(newColor)
 				if not hasColorpicker then return end
@@ -4944,11 +4985,12 @@ function Library.CreateWindow(arg1, arg2)
 			local api = {}
 			function api:Set(newVal)
 				local steppedValue = roundVal(newVal)
+				if currentValue == steppedValue then return end
 				currentValue = steppedValue
 				valueInput.Text = formatVal(steppedValue)
 				local alpha = math.clamp((steppedValue - min) / (max - min), 0, 1)
-				TS:Create(fill, TweenInfo.new(0.2), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
-				TS:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
+				fill.Size = UDim2.new(alpha, 0, 1, 0)
+				knob.Position = UDim2.new(alpha, 0, 0.5, 0)
 				callback(steppedValue)
 			end
 			function api:Save()
@@ -5280,12 +5322,13 @@ function Library.CreateWindow(arg1, arg2)
 			
 			table.insert(Window._connections, bBtn.MouseButton1Click:Connect(function() 
 				isBinding = true
+				if isSettings and cfg.Name == "Open GUI Keybind" then Window._capturingOpenKeybind = true end
 				bBtn.Text = "..."
 				ApplyTheme(bBtn, "Accent", "TextColor3") 
 			end))
 			
 			table.insert(Window._connections, UIS.InputBegan:Connect(function(input, gameProcessed)
-				if gameProcessed then return end
+				if gameProcessed and not isBinding then return end
 				
 				if isBinding then
 					if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -5293,6 +5336,7 @@ function Library.CreateWindow(arg1, arg2)
 						bBtn.Text = getShortKey(bind)
 						ApplyTheme(bBtn, "TextMuted", "TextColor3")
 						isBinding = false
+						if isSettings and cfg.Name == "Open GUI Keybind" then Window._capturingOpenKeybind = false end
 						
 						if cfg.Callback then 
 							pcall(function() cfg.Callback(bind) end)
@@ -5321,7 +5365,13 @@ function Library.CreateWindow(arg1, arg2)
 			end
 			function api:Load(val)
 				if val.Bind then
-					api:SetKeybind(Enum.KeyCode[val.Bind])
+					local resolved = resolveKeycode(val.Bind)
+					if resolved then
+						api:SetKeybind(resolved)
+						if isSettings and cfg.Name == "Open GUI Keybind" then
+							Window:SetOpenKeybind(resolved)
+						end
+					end
 				end
 			end
 			RegisterElementAPI("Keybind", cfg.Name, api)
@@ -5430,12 +5480,11 @@ function Library.CreateWindow(arg1, arg2)
 		ApplyTheme(tabBtnTitle, "TextMuted", "TextColor3")
 		ApplyTheme(tabBtnTitle, "TextFont", "Font")
 	
-		local page = Instance.new("CanvasGroup")
+		local page = Instance.new("Frame")
 		page.Name = "Page_" .. name
 		page.Size = UDim2.new(1, 0, 1, 0)
 		page.Position = UDim2.new(0, 0, 0, 0)
 		page.BackgroundTransparency = 1
-		page.GroupTransparency = 1
 		page.Visible = false
 		page.Parent = pagesFolder
 	
@@ -5561,7 +5610,6 @@ function Library.CreateWindow(arg1, arg2)
 				end
 	
 				prevTab.Page.Visible = false
-				prevTab.Page.GroupTransparency = 1
 			end
 	
 			TS:Create(tabStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
@@ -5578,11 +5626,9 @@ function Library.CreateWindow(arg1, arg2)
 			end
 	
 			page.Position = UDim2.new(0, 0, 0, 8)
-			page.GroupTransparency = 1
 			page.Visible = true
 			TS:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-				Position = UDim2.new(0, 0, 0, 0),
-				GroupTransparency = 0
+				Position = UDim2.new(0, 0, 0, 0)
 			}):Play()
 		end
 		
@@ -5708,7 +5754,7 @@ function Library.CreateWindow(arg1, arg2)
 					blockContainer.Parent = screenGui
 
 					ApplyTheme(blockContainer, "Background", "BackgroundColor3")
-					ApplyTheme(blockContainer, "BackgroundTrans", "BackgroundTransparency")
+					ApplyTheme(blockContainer, "HUDTransparency", "BackgroundTransparency")
 					
 					dummyCard.Visible = true
 					ApplyTheme(detachBtn, "TextMuted", "ImageColor3")
@@ -6147,6 +6193,32 @@ function Library.CreateWindow(arg1, arg2)
 		table.insert(wmShadowStrokes, wmShadowStroke)
 	end
 
+	local function setLayeredShadows(enabled)
+		enabled = enabled == true
+		SIDEBAR_STATE.ShadowsEnabled = enabled
+		shadowFolder.Visible = enabled
+		sidebarShadowFolder.Visible = enabled and SIDEBAR_STATE.Detached
+		wmShadowFolder.Visible = enabled
+		for _, layer in ipairs(shadowFolder:GetChildren()) do
+			local stroke = layer:FindFirstChild("ShadowStroke")
+			if stroke then
+				stroke.Enabled = enabled
+				if enabled then stroke.Transparency = stroke:GetAttribute("TargetTransparency") or 0.85 end
+			end
+		end
+		for _, layer in ipairs(sidebarShadowFolder:GetChildren()) do
+			local stroke = layer:FindFirstChild("ShadowStroke")
+			if stroke then
+				stroke.Enabled = enabled and SIDEBAR_STATE.Detached
+				if enabled then stroke.Transparency = stroke:GetAttribute("TargetTransparency") or 0.85 end
+			end
+		end
+		for _, stroke in ipairs(wmShadowStrokes) do
+			stroke.Enabled = enabled
+			if enabled then stroke.Transparency = stroke:GetAttribute("TargetTransparency") or 0.85 end
+		end
+	end
+
 	local wmBar = Instance.new("Frame")
 	wmBar.Name = "WatermarkBar"
 	wmBar.Size = UDim2.new(0, 0, 1, 0)
@@ -6155,7 +6227,7 @@ function Library.CreateWindow(arg1, arg2)
 	wmBar.ZIndex = 2
 	wmBar.Parent = watermarkHolder
 	ApplyTheme(wmBar, "Background", "BackgroundColor3")
-	ApplyTheme(wmBar, "BackgroundTrans", "BackgroundTransparency")
+	ApplyTheme(wmBar, "HUDTransparency", "BackgroundTransparency")
 
 	local wmCorner = Instance.new("UICorner")
 	wmCorner.CornerRadius = UDim.new(0, hudCornerRadiusNum)
@@ -6314,50 +6386,62 @@ function Library.CreateWindow(arg1, arg2)
 		end
 	end))
 
-	local fpsCount = 0
-	table.insert(Window._connections, RS.RenderStepped:Connect(function()
-		fpsCount = fpsCount + 1
+	local fpsFrames = 0
+	local fpsElapsed = 0
+	table.insert(Window._connections, RS.RenderStepped:Connect(function(dt)
+		if not watermarkHolder.Visible then
+			fpsFrames = 0
+			fpsElapsed = 0
+			return
+		end
+		fpsFrames = fpsFrames + 1
+		fpsElapsed = fpsElapsed + dt
+		if fpsElapsed >= 0.5 then
+			wmFps.Text = tostring(math.round(fpsFrames / fpsElapsed)) .. " fps"
+			fpsFrames = 0
+			fpsElapsed = 0
+		end
 	end))
 
 	task.spawn(function()
 		while watermarkHolder.Parent do
-			task.wait(0.5)
-			local fps = math.round(fpsCount * 2)
-			fpsCount = 0
-			wmFps.Text = tostring(fps) .. " fps"
-			
-			local pingVal = 0
-			pcall(function()
-				local netStats = StatsService:FindFirstChild("Network")
-				if netStats and netStats:FindFirstChild("ServerStatsItem") then
-					local pingItem = netStats.ServerStatsItem:FindFirstChild("Data Ping")
-					if pingItem then
-						pingVal = math.round(pingItem:GetValue())
+			task.wait(2.0)
+			if not watermarkHolder.Parent then break end
+			if watermarkHolder.Visible then
+				local pingVal = 0
+				pcall(function()
+					local netStats = StatsService:FindFirstChild("Network")
+					if netStats and netStats:FindFirstChild("ServerStatsItem") then
+						local pingItem = netStats.ServerStatsItem:FindFirstChild("Data Ping")
+						if pingItem then
+							pingVal = math.round(pingItem:GetValue())
+						end
 					end
-				end
 
-				if pingVal == 0 then
-					local perf = StatsService:FindFirstChild("PerformanceStats")
-					if perf and perf:FindFirstChild("Ping") then
-						pingVal = math.round(perf.Ping:GetValue())
+					if pingVal == 0 then
+						local perf = StatsService:FindFirstChild("PerformanceStats")
+						if perf and perf:FindFirstChild("Ping") then
+							pingVal = math.round(perf.Ping:GetValue())
+						end
 					end
-				end
 
-				if pingVal == 0 then
-					local rawPing = LP:GetNetworkPing()
-					if rawPing and rawPing > 0 then
-						pingVal = math.round(rawPing * 2000)
+					if pingVal == 0 then
+						local rawPing = LP:GetNetworkPing()
+						if rawPing and rawPing > 0 then
+							pingVal = math.round(rawPing * 2000)
+						end
 					end
-				end
-			end)
-			
-			wmPing.Text = tostring(pingVal) .. " ms"
+				end)
+				wmPing.Text = tostring(pingVal) .. " ms"
+			end
 		end
 	end)
 
 	Window.Watermark = {
 		SetVisible = function(self, state)
 			watermarkHolder.Visible = state
+			local control = Window._themeControls["Layout & Styles~Show Watermark"]
+			if control then control.API:Set(state == true) end
 		end,
 		SetLogo = function(self, id)
 			wmLogo.Image = parseAsset(id)
@@ -6371,14 +6455,7 @@ function Library.CreateWindow(arg1, arg2)
 		local KB_WIDTH = 195
 		local VISIBLE_EDGE = 14
 
-		local kbEnabled = true
-		if config.Keybinds ~= nil then
-			kbEnabled = config.Keybinds
-		elseif config.KeybindsMenu ~= nil then
-			kbEnabled = config.KeybindsMenu
-		elseif config.KeybindsHUD ~= nil then
-			kbEnabled = config.KeybindsHUD
-		end
+		local kbEnabled = keybindsEnabled
 
 		local kbHolder = Instance.new("Frame")
 		kbHolder.Name = "KeybindsHUD"
@@ -6393,10 +6470,12 @@ function Library.CreateWindow(arg1, arg2)
 		Window.Keybinds = {
 			SetVisible = function(self, state)
 				kbHolder.Visible = state
+				local control = Window._themeControls["Layout & Styles~Show Keybinds HUD"]
+				if control then control.API:Set(state == true) end
 			end
 		}
 
-		local kbMain = Instance.new("CanvasGroup")
+		local kbMain = Instance.new("Frame")
 		kbMain.Name = "MainCard"
 		kbMain.Size = UDim2.new(1, 0, 0, 0)
 		kbMain.AutomaticSize = Enum.AutomaticSize.Y
@@ -6404,7 +6483,7 @@ function Library.CreateWindow(arg1, arg2)
 		kbMain.ZIndex = 9001
 		kbMain.Parent = kbHolder
 		ApplyTheme(kbMain, "Background", "BackgroundColor3")
-		ApplyTheme(kbMain, "BackgroundTrans", "BackgroundTransparency")
+		ApplyTheme(kbMain, "HUDTransparency", "BackgroundTransparency")
 
 		local kbCorner = Instance.new("UICorner")
 		kbCorner.CornerRadius = UDim.new(0, hudCornerRadiusNum)
@@ -7067,6 +7146,15 @@ function Library.CreateWindow(arg1, arg2)
 		Callback = function(v) UpdateTheme("InputTrans", v/100) end
 	})
 
+	transBlock:CreateSlider({
+		Name = "HUD",
+		Min = 0,
+		Max = 100,
+		Step = 1,
+		Default = math.round(THEME.HUDTransparency * 100),
+		Callback = function(v) UpdateTheme("HUDTransparency", v / 100) end
+	})
+
 	local miscBlock = CreateThemeEditorBlock("Fonts & Extras", "Left")
 	miscBlock:CreateInput({
 		Name = "Bg Image ID",
@@ -7087,9 +7175,22 @@ function Library.CreateWindow(arg1, arg2)
 		Callback = function(v) UpdateTheme("SubtextFont", v) end
 	})
 
-	local elCornerRadiusNum = customTheme.ElementsCornerRadius or config.ElementsCornerRadius or cornerRadiusNum
+	local elCornerRadiusNum = getSetting("ElementsCornerRadius", cornerRadiusNum)
 
 	local layoutBlock = CreateThemeEditorBlock("Layout & Styles", "Right")
+	layoutBlock:CreateSlider({
+		Name = "Sidebar Width",
+		Min = MIN_SIDEBAR_WIDTH,
+		Max = MAX_SIDEBAR_WIDTH,
+		Step = 1,
+		Default = math.clamp(currentSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH),
+		Callback = function(width) updateSidebarWidth(width) end
+	})
+	layoutBlock:CreateKeybind({
+		Name = "Open GUI Keybind",
+		Default = openKeybind,
+		Callback = function(key) Window:SetOpenKeybind(key) end
+	})
 	layoutBlock:CreateToggle({
 		Name = "Main GUI Outline",
 		Default = THEME.MainOutlineEnabled,
@@ -7159,7 +7260,7 @@ function Library.CreateWindow(arg1, arg2)
 	})
 	layoutBlock:CreateToggle({
 		Name = "Show Keybinds HUD",
-		Default = (config.Keybinds ~= false and config.KeybindsMenu ~= false),
+		Default = keybindsEnabled,
 		Callback = function(s)
 			if Window.Keybinds then
 				Window.Keybinds:SetVisible(s)
@@ -7176,14 +7277,14 @@ function Library.CreateWindow(arg1, arg2)
 	})
 	layoutBlock:CreateToggle({
 		Name = "Show Search Bar",
-		Default = (customTheme.ShowSearchBar ~= nil and customTheme.ShowSearchBar) or (config.ShowSearchBar ~= nil and config.ShowSearchBar) or true,
+		Default = showSearchBar,
 		Callback = function(s)
 			searchContainer.Visible = s 
 		end
 	})
 	layoutBlock:CreateToggle({
 		Name = "Show Profile",
-		Default = (customTheme.ShowProfile ~= nil and customTheme.ShowProfile) or (config.ShowProfile ~= nil and config.ShowProfile) or true,
+		Default = showProfile,
 		Callback = function(s)
 			profileBlock.Visible = s 
 		end
@@ -7192,21 +7293,10 @@ function Library.CreateWindow(arg1, arg2)
 		Name = "Drop Shadows",
 		Default = SIDEBAR_STATE.ShadowsEnabled,
 		Callback = function(s)
-			SIDEBAR_STATE.ShadowsEnabled = s
-			shadowFolder.Visible = s 
-			sidebarShadowFolder.Visible = (s and SIDEBAR_STATE.Detached)
-			if wmShadowFolder then wmShadowFolder.Visible = s end
-			
-			for _, shadow in ipairs(shadowFolder:GetChildren()) do
-				local stroke = shadow:FindFirstChild("ShadowStroke")
-				if stroke then stroke.Enabled = s end
-			end
-			for _, shadow in ipairs(sidebarShadowFolder:GetChildren()) do
-				local stroke = shadow:FindFirstChild("ShadowStroke")
-				if stroke then stroke.Enabled = (s and SIDEBAR_STATE.Detached) end
-			end
+			setLayeredShadows(s)
 		end
 	})
+	setLayeredShadows(SIDEBAR_STATE.ShadowsEnabled)
 	layoutBlock:CreateSlider({
 		Name = "Main Corner Radius",
 		Min = 0,
@@ -7255,6 +7345,7 @@ function Library.CreateWindow(arg1, arg2)
 		Callback = function(s)
 			SIDEBAR_STATE.Detached = s
 			FullUpdateLayout()
+			setLayeredShadows(SIDEBAR_STATE.ShadowsEnabled)
 		end
 	})
 	layoutBlock:CreateDropdown({
@@ -7431,12 +7522,115 @@ function Library.CreateWindow(arg1, arg2)
 	})
 	isInitConfigAutoLoad = false
 	
-	if customTheme.ShowSearchBar ~= nil then searchContainer.Visible = customTheme.ShowSearchBar end
-	if customTheme.ShowProfile ~= nil then profileBlock.Visible = customTheme.ShowProfile end
-	if customTheme.ElementsCornerRadius ~= nil then
-		for _, corner in ipairs(CS:GetTagged("ElementCorner")) do 
-			corner.CornerRadius = UDim.new(0, customTheme.ElementsCornerRadius) 
+	function Window:SetOpenKeybind(key)
+		local resolved = resolveKeycode(key)
+		if not resolved then return false end
+		openKeybind = resolved
+		local control = self._themeControls["Layout & Styles~Open GUI Keybind"]
+		if control then control.API:SetKeybind(resolved) end
+		return true
+	end
+
+	function Window:GetOpenKeybind()
+		return openKeybind
+	end
+
+	local controlBindings = {
+		Accent = {"Colors~Accent Color", "Colorpicker"},
+		Background = {"Colors~Background", "Colorpicker"},
+		Sidebar = {"Colors~Sidebar", "Colorpicker"},
+		Card = {"Colors~Cards & Panels", "Colorpicker"},
+		Element = {"Colors~Elements", "Colorpicker"},
+		Input = {"Colors~Inputs & Highlights", "Colorpicker"},
+		Outlines = {"Colors~Outlines & Borders", "Colorpicker"},
+		Text = {"Colors~Main Text", "Colorpicker"},
+		TextMuted = {"Colors~Subtext", "Colorpicker"},
+		BackgroundTrans = {"Transparency~Background", "Percent"},
+		HUDTransparency = {"Transparency~HUD", "Percent"},
+		BgImageTrans = {"Transparency~Bg Image", "Percent"},
+		CardTrans = {"Transparency~Cards & Panels", "Percent"},
+		ElementTrans = {"Transparency~Elements", "Percent"},
+		InputTrans = {"Transparency~Inputs", "Percent"},
+		BackgroundImage = {"Fonts & Extras~Bg Image ID", "Text"},
+		TextFont = {"Fonts & Extras~Primary Font", "Dropdown"},
+		SubtextFont = {"Fonts & Extras~Subtext Font", "Dropdown"},
+		MainOutlineEnabled = {"Layout & Styles~Main GUI Outline", "Toggle"},
+		InternalOutlines = {"Layout & Styles~Internal Outlines", "Dropdown"},
+		ElementStyle = {"Layout & Styles~GUI Style", "Style"},
+		CloseAnimation = {"Layout & Styles~Close Animation", "Animation"},
+		ShowWatermark = {"Layout & Styles~Show Watermark", "Toggle"},
+		ShowKeybindsHUD = {"Layout & Styles~Show Keybinds HUD", "Toggle"},
+		TopbarAlign = {"Layout & Styles~Topbar Elements Pos", "Dropdown"},
+		ShowSearchBar = {"Layout & Styles~Show Search Bar", "Toggle"},
+		ShowProfile = {"Layout & Styles~Show Profile", "Toggle"},
+		DropShadows = {"Layout & Styles~Drop Shadows", "Toggle"},
+		SidebarWidth = {"Layout & Styles~Sidebar Width", "Slider"},
+		CornerRadius = {"Layout & Styles~Main Corner Radius", "Slider"},
+		ElementsCornerRadius = {"Layout & Styles~Elements Corner Radius", "Slider"},
+		HUDCornerRadius = {"Layout & Styles~HUD Corner Radius", "Slider"},
+		SidebarPosition = {"Layout & Styles~Sidebar Position", "Dropdown"},
+		DetachedSidebar = {"Layout & Styles~Detached Sidebar", "Toggle"},
+		TogglePosition = {"Layout & Styles~Toggle Checkbox Pos", "Dropdown"}
+	}
+
+	function Window:SetThemeOption(key, value)
+		if key == "OpenKeybind" then return self:SetOpenKeybind(value) end
+		local binding = controlBindings[key]
+		if not binding then
+			if THEME[key] ~= nil then
+				UpdateTheme(key, value)
+				return true
+			end
+			return false
 		end
+		local entry = self._themeControls[binding[1]]
+		if not entry then return false end
+		local kind = binding[2]
+		if kind == "Percent" then
+			if tonumber(value) == nil then return false end
+			value = math.round(math.clamp(tonumber(value), 0, 1) * 100) / 100
+			if THEME[key] ~= value then UpdateTheme(key, value) end
+			entry.API:Set(math.round(value * 100))
+		elseif kind == "Colorpicker" then
+			if typeof(value) ~= "Color3" then return false end
+			entry.API:SetColor(value)
+		elseif kind == "Text" then
+			entry.API:SetText(tostring(value))
+		elseif kind == "Style" then
+			local n = tonumber(value)
+			if not n or n < 1 or n > 4 then return false end
+			entry.API:Set("Style " .. tostring(math.floor(n)))
+		elseif kind == "Animation" then
+			if type(value) == "number" then
+				value = ({"Fade Slide Down", "Fade Slide Up", "Zoom Fade", "Slide Right"})[value]
+			end
+			if not value then return false end
+			entry.API:Set(value)
+		elseif kind == "Toggle" then
+			entry.API:Set(value == true)
+		else
+			entry.API:Set(value)
+		end
+		return true
+	end
+
+	function Window:SetTheme(options)
+		if type(options) ~= "table" then return false end
+		local allApplied = true
+		for key, value in pairs(options) do
+			if not self:SetThemeOption(key, value) then allApplied = false end
+		end
+		return allApplied
+	end
+
+	function Window:SetHUDTransparency(value)
+		return self:SetThemeOption("HUDTransparency", value)
+	end
+
+	searchContainer.Visible = showSearchBar
+	profileBlock.Visible = showProfile
+	for _, corner in ipairs(CS:GetTagged("ElementCorner")) do
+		corner.CornerRadius = UDim.new(0, elCornerRadiusNum)
 	end
 
 	UpdateTopbarAlign(THEME.TopbarAlign)
