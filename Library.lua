@@ -340,9 +340,19 @@ function Library.CreateWindow(arg1, arg2)
 		elseif config.KeybindsHUD ~= nil then keybindsEnabled = config.KeybindsHUD
 		else keybindsEnabled = true end
 	end
-	local cornerRadiusNum = customTheme.CornerRadius or config.CornerRadius or 20
-	local hudCornerRadiusNum = customTheme.HUDCornerRadius or config.HUDCornerRadius or 10
-	local GLOBAL_CORNER = UDim.new(0, cornerRadiusNum)
+	local cornerRadiusNum = tonumber(getSetting("CornerRadius", 20)) or 20
+	local elCornerRadiusNum = tonumber(getSetting("ElementsCornerRadius", cornerRadiusNum)) or cornerRadiusNum
+	local hudCornerRadiusNum = tonumber(getSetting("HUDCornerRadius", 10)) or 10
+	local MAIN_CORNER = UDim.new(0, cornerRadiusNum)
+	local GLOBAL_CORNER = UDim.new(0, elCornerRadiusNum)
+
+	local function UpdateElementCorners(radius)
+		elCornerRadiusNum = radius
+		GLOBAL_CORNER = UDim.new(0, radius)
+		for _, corner in ipairs(CS:GetTagged("ElementCorner")) do
+			corner.CornerRadius = GLOBAL_CORNER
+		end
+	end
 
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "ModernDashboardGui"
@@ -958,7 +968,7 @@ function Library.CreateWindow(arg1, arg2)
 	main.Parent = contentWrapper
 	
 	local mainCorner = Instance.new("UICorner")
-	mainCorner.CornerRadius = GLOBAL_CORNER
+	mainCorner.CornerRadius = MAIN_CORNER
 	mainCorner.Parent = main
 	CS:AddTag(mainCorner, "MainCorner")
 
@@ -1202,9 +1212,9 @@ function Library.CreateWindow(arg1, arg2)
 	sidebarVisuals.Parent = main
 	
 	local svCorner = Instance.new("UICorner")
-	svCorner.CornerRadius = GLOBAL_CORNER
+	svCorner.CornerRadius = MAIN_CORNER
 	svCorner.Parent = sidebarVisuals
-	CS:AddTag(svCorner, "MainCorner") 
+	CS:AddTag(svCorner, "MainCorner")
 
 	local sidebarBgImage = Instance.new("ImageLabel")
 	sidebarBgImage.Name = "SidebarBackgroundImage"
@@ -1227,9 +1237,9 @@ function Library.CreateWindow(arg1, arg2)
 	ApplyTheme(sidebarBase, "BackgroundTrans", "BackgroundTransparency")
 	
 	local sidebarBaseCorner = Instance.new("UICorner")
-	sidebarBaseCorner.CornerRadius = GLOBAL_CORNER
+	sidebarBaseCorner.CornerRadius = MAIN_CORNER
 	sidebarBaseCorner.Parent = sidebarBase
-	CS:AddTag(sidebarBaseCorner, "MainCorner") 
+	CS:AddTag(sidebarBaseCorner, "MainCorner")
 
 	local sidebarFiller = Instance.new("Frame")
 	sidebarFiller.Name = "SidebarFiller"
@@ -1248,7 +1258,7 @@ function Library.CreateWindow(arg1, arg2)
 	sidebar.Parent = main
 	
 	local sidebarCorner = Instance.new("UICorner")
-	sidebarCorner.CornerRadius = GLOBAL_CORNER
+	sidebarCorner.CornerRadius = MAIN_CORNER
 	sidebarCorner.Parent = sidebar
 	CS:AddTag(sidebarCorner, "MainCorner")
 
@@ -1467,7 +1477,7 @@ function Library.CreateWindow(arg1, arg2)
 	CS:AddTag(closeBtn, "CloseBtnBind")
 	
 	local closeBtnCorner = Instance.new("UICorner")
-	closeBtnCorner.CornerRadius = GLOBAL_CORNER
+	closeBtnCorner.CornerRadius = MAIN_CORNER
 	closeBtnCorner.Parent = closeBtn
 	CS:AddTag(closeBtnCorner, "MainCorner")
 	
@@ -1499,7 +1509,7 @@ function Library.CreateWindow(arg1, arg2)
 	CS:AddTag(profileBlock, "ProfileBlockBind")
 	
 	local profileBlockCorner = Instance.new("UICorner")
-	profileBlockCorner.CornerRadius = GLOBAL_CORNER
+	profileBlockCorner.CornerRadius = MAIN_CORNER
 	profileBlockCorner.Parent = profileBlock
 	CS:AddTag(profileBlockCorner, "MainCorner")
 	
@@ -1584,7 +1594,7 @@ function Library.CreateWindow(arg1, arg2)
 	CS:AddTag(searchContainer, "SearchContainerBind")
 	
 	local searchContainerCorner = Instance.new("UICorner")
-	searchContainerCorner.CornerRadius = GLOBAL_CORNER
+	searchContainerCorner.CornerRadius = MAIN_CORNER
 	searchContainerCorner.Parent = searchContainer
 	CS:AddTag(searchContainerCorner, "MainCorner")
 	
@@ -7175,8 +7185,6 @@ function Library.CreateWindow(arg1, arg2)
 		Callback = function(v) UpdateTheme("SubtextFont", v) end
 	})
 
-	local elCornerRadiusNum = getSetting("ElementsCornerRadius", cornerRadiusNum)
-
 	local layoutBlock = CreateThemeEditorBlock("Layout & Styles", "Right")
 	layoutBlock:CreateSlider({
 		Name = "Sidebar Width",
@@ -7305,7 +7313,8 @@ function Library.CreateWindow(arg1, arg2)
 		Default = cornerRadiusNum,
 		Callback = function(v)
 			cornerRadiusNum = v
-			for _, corner in ipairs(CS:GetTagged("MainCorner")) do corner.CornerRadius = UDim.new(0, v) end
+			MAIN_CORNER = UDim.new(0, v)
+			for _, corner in ipairs(CS:GetTagged("MainCorner")) do corner.CornerRadius = MAIN_CORNER end
 			FullUpdateLayout()
 		end
 	})
@@ -7316,7 +7325,7 @@ function Library.CreateWindow(arg1, arg2)
 		Step = 1,
 		Default = elCornerRadiusNum,
 		Callback = function(v)
-			for _, corner in ipairs(CS:GetTagged("ElementCorner")) do corner.CornerRadius = UDim.new(0, v) end
+			UpdateElementCorners(v)
 		end
 	})
 	layoutBlock:CreateSlider({
@@ -7629,9 +7638,7 @@ function Library.CreateWindow(arg1, arg2)
 
 	searchContainer.Visible = showSearchBar
 	profileBlock.Visible = showProfile
-	for _, corner in ipairs(CS:GetTagged("ElementCorner")) do
-		corner.CornerRadius = UDim.new(0, elCornerRadiusNum)
-	end
+	UpdateElementCorners(elCornerRadiusNum)
 
 	UpdateTopbarAlign(THEME.TopbarAlign)
 	UpdateTogglePosition(THEME.TogglePosition)
