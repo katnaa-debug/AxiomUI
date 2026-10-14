@@ -4774,18 +4774,24 @@ function Library.CreateWindow(arg1, arg2)
 			local min = slConfig.Min or 0
 			local max = slConfig.Max or 100
 			local rawStep = slConfig.Step or 1
-			local step = math.max(0.01, rawStep)
+			local step = (type(rawStep) == "number" and rawStep > 0) and rawStep or 1
 
 			local stepStr = tostring(step)
 			local decimals = 0
-			if stepStr:find("%.") then
-				decimals = math.clamp(#stepStr:split(".")[2], 0, 2)
+			local exp = stepStr:match("[eE]%-(%d+)")
+			if exp then
+				local mantissa = stepStr:match("^(.-)[eE]")
+				local mantissaDecs = (mantissa and mantissa:find("%.")) and #mantissa:split(".")[2] or 0
+				decimals = tonumber(exp) + mantissaDecs
+			elseif stepStr:find("%.") then
+				decimals = #stepStr:split(".")[2]
 			end
+			decimals = math.clamp(decimals, 0, 14)
 
 			local function roundVal(val)
 				val = math.clamp(val, min, max)
 				local snapped = math.round(val / step) * step
-				return tonumber(string.format("%." .. decimals .. "f", snapped))
+				return tonumber(string.format("%." .. decimals .. "f", snapped)) or snapped
 			end
 
 			local function formatVal(val)
